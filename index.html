@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AI 注意力重排助手</title>
+  <meta name="description" content="新想法插入时，帮你重新分配今天的注意力">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <header id="header">
+      <h1>AI 注意力重排助手</h1>
+      <p>新想法插入时，帮你重新分配今天的注意力</p>
+    </header>
+
+    <main class="main-content">
+      <section id="today-queue" class="section">
+        <div class="queue-header">
+          <h2>今日队列</h2>
+          <span class="queue-count">共 4 项</span>
+        </div>
+        <div class="task-list">
+          <div class="task-card">
+            <div class="task-rank">1</div>
+            <div class="task-content">
+              <div class="task-header">
+                <h3>搭建 Demo 首页</h3>
+                <span class="label label-same">保持</span>
+              </div>
+              <div class="task-meta">
+                <span class="deadline">⏰ 今天下午</span>
+                <span class="recommendation rec-today">今天做</span>
+              </div>
+              <p class="task-reason">今天核心任务，直接影响 Demo 展示效果。</p>
+              <div class="score-detail">
+                <div class="score-bar" style="width: 77%">
+                  <span>3.85</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="task-card">
+            <div class="task-rank">2</div>
+            <div class="task-content">
+              <div class="task-header">
+                <h3>代码审查</h3>
+                <span class="label label-same">保持</span>
+              </div>
+              <div class="task-meta">
+                <span class="deadline">⏰ 今天晚上</span>
+                <span class="recommendation rec-today">今天做</span>
+              </div>
+              <p class="task-reason">保证代码质量，建议在 Demo 完成后进行。</p>
+              <div class="score-detail">
+                <div class="score-bar" style="width: 69%">
+                  <span>3.45</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="task-card">
+            <div class="task-rank">3</div>
+            <div class="task-content">
+              <div class="task-header">
+                <h3>查竞品资料</h3>
+                <span class="label label-same">保持</span>
+              </div>
+              <div class="task-meta">
+                <span class="deadline">⏰ 明天</span>
+                <span class="recommendation rec-today">今天做</span>
+              </div>
+              <p class="task-reason">有助于了解市场情况，安排在下午进行。</p>
+              <div class="score-detail">
+                <div class="score-bar" style="width: 57%">
+                  <span>2.85</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="task-card">
+            <div class="task-rank">4</div>
+            <div class="task-content">
+              <div class="task-header">
+                <h3>整理项目说明文档</h3>
+                <span class="label label-same">保持</span>
+              </div>
+              <div class="task-meta">
+                <span class="deadline">⏰ 本周内</span>
+                <span class="recommendation rec-later">延后</span>
+              </div>
+              <p class="task-reason">重要但不紧急，可安排在其他时间。</p>
+              <div class="score-detail">
+                <div class="score-bar" style="width: 53%">
+                  <span>2.65</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="capture-panel" class="section">
+        <h2>随时捕获</h2>
+        <div class="input-section">
+          <textarea 
+            id="input-text" 
+            placeholder="输入你的想法，例如：'我突然想到还要问老师推荐信，晚上顺便看一下竞品，明天中午前要交报名材料。'"
+            rows="3"
+          ></textarea>
+        </div>
+        
+        <div class="action-section">
+          <button id="voice-btn" class="btn-voice">🎤 语音输入</button>
+          <button id="reorder-btn" class="btn-primary">重排今日队列</button>
+        </div>
+        
+        <div class="examples-section">
+          <p>快速体验示例：</p>
+          <div class="examples-list">
+            <button class="example-btn" data-example-id="example_1">比赛报名场景</button>
+            <button class="example-btn" data-example-id="example_2">开发紧急场景</button>
+            <button class="example-btn" data-example-id="example_3">生活琐事场景</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="reason-panel" class="section">
+        <div class="reason-empty">
+          <h3>💡 AI 取舍解释</h3>
+          <p>输入想法并点击"重排今日队列"，查看 AI 如何把任务分到“现在做 / 今天晚点做 / 不放进今天”。</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="assets/demo-data.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
