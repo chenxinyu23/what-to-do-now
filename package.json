@@ -1,0 +1,17 @@
+{
+  "name": "attention-reorder-assistant",
+  "version": "0.2.0",
+  "private": true,
+  "description": "AI attention reorder assistant demo with a lightweight model API proxy.",
+  "main": "server/server.js",
+  "scripts": {
+    "dev": "node server/server.js",
+    "test": "node --test",
+    "check": "node --check assets/app.js && node --check server/server.js && node --check scripts/evaluate-model.js",
+    "eval:model": "node scripts/evaluate-model.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}

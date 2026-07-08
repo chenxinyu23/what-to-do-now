@@ -1,0 +1,223 @@
+[
+  {
+    "id": "single_deadline",
+    "name": "单任务明确截止",
+    "todayGoal": "完成 AI 创意大赛 Demo 初赛提交",
+    "rawInput": "明天中午前要提交报名材料。",
+    "notes": "应识别为提交类任务，并给出较高紧急度。",
+    "expectations": {
+      "minTaskCount": 1,
+      "expectedTitles": ["提交报名材料"],
+      "expectedHardSignals": ["deadline"],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "multi_competition",
+    "name": "比赛场景多任务",
+    "todayGoal": "完成 AI 创意大赛 Demo 初赛提交",
+    "rawInput": "我突然想到还要问老师推荐信，晚上顺便看一下竞品，明天中午前要交报名材料。",
+    "notes": "应拆出推荐信、竞品、报名材料三个任务。",
+    "expectations": {
+      "minTaskCount": 3,
+      "expectedTitles": ["问老师推荐信", "看竞品资料", "提交报名材料"],
+      "expectedHardSignals": ["deadline", "blocking"],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "developer_bug",
+    "name": "开发紧急修复",
+    "todayGoal": "修好 Demo 移动端体验",
+    "rawInput": "先把移动端按钮遮挡文字的问题修掉，另外检查一下空状态文案。",
+    "notes": "应识别先做信号，移动端 bug 应目标影响高。",
+    "expectations": {
+      "minTaskCount": 2,
+      "expectedTitles": ["修复移动端按钮遮挡文字", "检查空状态文案"],
+      "expectedHardSignals": ["explicitToday"],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "blocking_communication",
+    "name": "沟通阻塞流程",
+    "todayGoal": "推进项目提交材料",
+    "rawInput": "记得今天先发消息问老师推荐信，不然报名材料后面没法继续。",
+    "notes": "应识别沟通类任务和阻塞风险。",
+    "expectations": {
+      "minTaskCount": 1,
+      "expectedTitles": ["问老师推荐信"],
+      "expectedHardSignals": ["blocking", "explicitToday"],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "low_value_distraction",
+    "name": "低价值分心任务",
+    "todayGoal": "完成项目 Demo",
+    "rawInput": "今晚想研究一下新的动画库，顺便刷几个产品视频找灵感。",
+    "notes": "应识别为研究/分心任务，目标影响不应过高。",
+    "expectations": {
+      "minTaskCount": 2,
+      "expectedTitles": ["研究新的动画库", "刷产品视频找灵感"],
+      "expectedHardSignals": [],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "life_errands",
+    "name": "生活琐事",
+    "todayGoal": "完成项目 Demo",
+    "rawInput": "记得买洗衣液，顺便把桌面整理一下，还有晚上倒垃圾。",
+    "notes": "应拆成生活类任务，目标影响较低。",
+    "expectations": {
+      "minTaskCount": 3,
+      "expectedTitles": ["买洗衣液", "整理桌面", "倒垃圾"],
+      "expectedHardSignals": [],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "chinese_list_life_tasks",
+    "name": "中文顿号生活任务",
+    "todayGoal": "保持健康和生活秩序",
+    "rawInput": "今晚要运动、洗地、洗澡",
+    "notes": "应按中文顿号拆成三个独立生活任务，而不是合并成一项。",
+    "expectations": {
+      "minTaskCount": 3,
+      "expectedTitles": ["运动", "洗地", "洗澡"],
+      "expectedHardSignals": ["deadline"],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "must_now",
+    "name": "必须马上处理",
+    "todayGoal": "保证今晚能提交版本",
+    "rawInput": "马上把线上演示链接打不开的问题修掉。",
+    "notes": "应识别 explicitToday 和高紧急度。",
+    "expectations": {
+      "minTaskCount": 1,
+      "expectedTitles": ["修复演示链接打不开"],
+      "expectedHardSignals": ["explicitToday"],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "not_a_task",
+    "name": "非任务输入",
+    "todayGoal": "完成项目 Demo",
+    "rawInput": "今天感觉有点乱，不知道从哪里开始。",
+    "notes": "模型可以返回空任务或一个整理计划任务，warnings 应可读。",
+    "expectations": {
+      "minTaskCount": 0,
+      "expectedTitles": [],
+      "expectedHardSignals": [],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "vague_idea",
+    "name": "模糊想法",
+    "todayGoal": "完善产品演示",
+    "rawInput": "感觉首页还不够有说服力，可能要再想想怎么表达核心价值。",
+    "notes": "应转成可执行的产品文案/首页表达任务。",
+    "expectations": {
+      "minTaskCount": 1,
+      "expectedTitles": ["优化首页核心价值表达"],
+      "expectedHardSignals": [],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "long_mixed",
+    "name": "长句混合多个任务",
+    "todayGoal": "完成 AI 创意大赛 Demo 初赛提交",
+    "rawInput": "上午先把技术方案补完，然后把演示数据再检查一遍，下午约同学帮忙试用，晚上如果还有时间再整理一下灵感库。",
+    "notes": "应拆出上午、下午、晚上多个任务。",
+    "expectations": {
+      "minTaskCount": 4,
+      "expectedTitles": ["补完技术方案", "检查演示数据", "约同学试用", "整理灵感库"],
+      "expectedHardSignals": ["explicitToday"],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "goal_relevant",
+    "name": "强相关今日目标",
+    "todayGoal": "准备明天的算法考试",
+    "rawInput": "今晚要刷两套动态规划题，另外把错题本里的图论题复盘一下。",
+    "notes": "应识别和考试目标强相关。",
+    "expectations": {
+      "minTaskCount": 2,
+      "expectedTitles": ["刷动态规划题", "复盘图论错题"],
+      "expectedHardSignals": [],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "goal_weak",
+    "name": "弱相关任务",
+    "todayGoal": "准备明天的算法考试",
+    "rawInput": "顺便研究一下新的代码编辑器主题，再看看有没有好看的桌面壁纸。",
+    "notes": "应识别目标影响低。",
+    "expectations": {
+      "minTaskCount": 2,
+      "expectedTitles": ["研究代码编辑器主题", "看桌面壁纸"],
+      "expectedHardSignals": [],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "meeting_followup",
+    "name": "会议后跟进",
+    "todayGoal": "推进客户项目交付",
+    "rawInput": "会议后要整理纪要，发给客户确认，另外让设计同学补一下封面图。",
+    "notes": "应识别纪要、客户确认、设计协作，包含阻塞风险。",
+    "expectations": {
+      "minTaskCount": 3,
+      "expectedTitles": ["整理会议纪要", "发给客户确认", "让设计补封面图"],
+      "expectedHardSignals": ["blocking"],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "deadline_soft",
+    "name": "软截止",
+    "todayGoal": "保持健康和工作节奏",
+    "rawInput": "这周内最好把体检预约了，今天不一定要做。",
+    "notes": "应识别截止不紧急，explicitToday 不应为 true。",
+    "expectations": {
+      "minTaskCount": 1,
+      "expectedTitles": ["预约体检"],
+      "expectedHardSignals": [],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "combined_personal_work",
+    "name": "工作生活混合",
+    "todayGoal": "完成上线前检查",
+    "rawInput": "下午检查支付回调日志，另外下班路上取快递，晚上把上线清单发给负责人。",
+    "notes": "应区分开发检查、生活取快递、上线沟通。",
+    "expectations": {
+      "minTaskCount": 3,
+      "expectedTitles": ["检查支付回调日志", "取快递", "发送上线清单"],
+      "expectedHardSignals": ["blocking"],
+      "shouldFallbackAllowed": true
+    }
+  },
+  {
+    "id": "manual_context_sensitive",
+    "name": "适合测试手动约束上下文",
+    "todayGoal": "完成项目 Demo",
+    "rawInput": "还有一个小想法：给任务卡片加一点动效，但不是今天必须做。",
+    "notes": "应识别为低紧急、非硬约束的增强任务。",
+    "expectations": {
+      "minTaskCount": 1,
+      "expectedTitles": ["给任务卡片加动效"],
+      "expectedHardSignals": [],
+      "shouldFallbackAllowed": true
+    }
+  }
+]
