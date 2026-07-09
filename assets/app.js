@@ -4,16 +4,20 @@ class AttentionReorderApp {
     this.dragState = null;
     this.longPressTimer = null;
     this.pressStartPos = null;
+    this.toastTimer = null;
     this.state = {
       rawInput: "",
       todayGoal: "完成 AI 创意大赛 Demo 初赛提交",
       currentQueue: [],
+      completedTasks: [],
       lastQueue: [],
       extractedTasks: [],
       reorderResult: null,
       manualOrderConstraints: [],
       manualOutIds: [],
       lastManualMessage: "",
+      lastCompletedTask: null,
+      isCompletedExpanded: false,
       isProcessing: false,
       speechSupported: false,
       isIdeaSheetOpen: false,
@@ -71,12 +75,14 @@ class AttentionReorderApp {
         rawInput: parsed.rawInput || "",
         todayGoal: parsed.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
         currentQueue: parsed.currentQueue,
+        completedTasks: Array.isArray(parsed.completedTasks) ? parsed.completedTasks : [],
         lastQueue: parsed.lastQueue || [],
         extractedTasks: parsed.extractedTasks || [],
         reorderResult: parsed.reorderResult || null,
         manualOrderConstraints: parsed.manualOrderConstraints || [],
         manualOutIds: parsed.manualOutIds || [],
         lastManualMessage: parsed.lastManualMessage || "",
+        isCompletedExpanded: Boolean(parsed.isCompletedExpanded),
         goalDraft: parsed.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
         isGoalDirty: Boolean(parsed.isGoalDirty)
       };
@@ -92,12 +98,14 @@ class AttentionReorderApp {
         rawInput: this.state.rawInput,
         todayGoal: this.state.todayGoal,
         currentQueue: this.state.currentQueue,
+        completedTasks: this.state.completedTasks,
         lastQueue: this.state.lastQueue,
         extractedTasks: this.state.extractedTasks,
         reorderResult: this.state.reorderResult,
         manualOrderConstraints: this.state.manualOrderConstraints,
         manualOutIds: this.state.manualOutIds,
         lastManualMessage: this.state.lastManualMessage,
+        isCompletedExpanded: this.state.isCompletedExpanded,
         isGoalDirty: this.state.isGoalDirty
       };
       localStorage.setItem(this.storageKey, JSON.stringify(persisted));
@@ -111,12 +119,15 @@ class AttentionReorderApp {
     this.state.rawInput = "";
     this.state.todayGoal = "完成 AI 创意大赛 Demo 初赛提交";
     this.state.currentQueue = this.normalizeInitialQueue(DEMO_DATA.initialQueue);
+    this.state.completedTasks = [];
     this.state.lastQueue = [];
     this.state.extractedTasks = [];
     this.state.reorderResult = null;
     this.state.manualOrderConstraints = [];
     this.state.manualOutIds = [];
     this.state.lastManualMessage = "";
+    this.state.lastCompletedTask = null;
+    this.state.isCompletedExpanded = false;
     this.state.isIdeaSheetOpen = false;
     this.state.isEditingGoal = false;
     this.state.goalDraft = this.state.todayGoal;
@@ -175,6 +186,21 @@ class AttentionReorderApp {
         this.loadExample(exampleId);
       };
     });
+
+    document.querySelectorAll(".complete-task-btn").forEach((btn) => {
+      btn.onpointerdown = (event) => {
+        event.stopPropagation();
+      };
+      btn.onclick = (event) => {
+        event.stopPropagation();
+        this.completeTask(event.currentTarget.dataset.taskId);
+      };
+    });
+
+    const completedToggle = document.getElementById("completed-toggle");
+    if (completedToggle) {
+      completedToggle.onclick = () => this.toggleCompletedTasks();
+    }
   }
 
   bindDragEvents() {
@@ -339,7 +365,7 @@ class AttentionReorderApp {
 
   handleVoiceInput() {
     if (!this.state.speechSupported) {
-      this.showToast("当前浏览器不支持语音识别，请使用文字输入");
+      this.showToast("当前浏览器不支持网页语音识别，可使用系统键盘语音输入或文字输入");
       return;
     }
 
@@ -929,6 +955,70 @@ class AttentionReorderApp {
     this.render();
   }
 
+  completeTask(taskId) {
+    const allTasks = this.cloneTasks(this.state.currentQueue);
+    const targetTask = allTasks.find((task) => task.id === taskId);
+    if (!targetTask || this.isOutOfToday(targetTask)) return;
+
+    const remainingTasks = allTasks.filter((task) => task.id !== taskId);
+    const activeTasks = this.getTodayTasks(remainingTasks).map((task, index) => ({
+      ...task,
+      currentRank: index + 1,
+      recommendation: this.getManualRecommendation(task, index)
+    }));
+    const outTasks = this.getOutOfTodayTasks(remainingTasks);
+    const completedTask = {
+      ...targetTask,
+      completedAt: new Date().toISOString()
+    };
+
+    this.state.lastQueue = allTasks;
+    this.state.currentQueue = [...activeTasks, ...outTasks];
+    this.state.completedTasks = [completedTask, ...this.state.completedTasks.filter((task) => task.id !== taskId)];
+    this.state.lastCompletedTask = completedTask;
+    this.state.manualOutIds = this.state.manualOutIds.filter((id) => id !== taskId);
+    this.state.manualOrderConstraints = this.state.manualOrderConstraints.filter(
+      (constraint) => constraint.beforeTaskId !== taskId && constraint.afterTaskId !== taskId
+    );
+    this.state.lastManualMessage = "";
+    this.persistState();
+    this.render();
+    this.showUndoToast("已标记完成", () => this.undoLastCompletedTask());
+  }
+
+  undoLastCompletedTask() {
+    const task = this.state.lastCompletedTask;
+    if (!task) return;
+
+    const completedTasks = this.state.completedTasks.filter((item) => item.id !== task.id);
+    const activeTasks = this.getTodayTasks(this.state.currentQueue);
+    const outTasks = this.getOutOfTodayTasks(this.state.currentQueue);
+    const restoredTask = {
+      ...task,
+      completedAt: undefined,
+      previousRank: null,
+      currentRank: activeTasks.length + 1,
+      recommendation: "schedule_later",
+      change: "same",
+      manualStatus: null,
+      reason: "已从完成状态恢复，下一次重排会重新安排。"
+    };
+
+    this.state.currentQueue = [...activeTasks, restoredTask, ...outTasks];
+    this.state.completedTasks = completedTasks;
+    this.state.lastCompletedTask = null;
+    this.state.lastManualMessage = "";
+    this.persistState();
+    this.render();
+    this.showToast("已撤销完成");
+  }
+
+  toggleCompletedTasks() {
+    this.state.isCompletedExpanded = !this.state.isCompletedExpanded;
+    this.persistState();
+    this.render();
+  }
+
   deriveManualOrderConstraints(activeTasks) {
     return activeTasks.slice(0, -1).map((task, index) => ({
       beforeTaskId: task.id,
@@ -1077,11 +1167,40 @@ class AttentionReorderApp {
 
   showToast(message) {
     const toast = document.getElementById("toast");
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    toast.classList.remove("actionable");
     toast.textContent = message;
     toast.classList.add("show");
-    setTimeout(() => {
+    this.toastTimer = setTimeout(() => {
       toast.classList.remove("show");
+      this.toastTimer = null;
     }, 2000);
+  }
+
+  showUndoToast(message, onUndo) {
+    const toast = document.getElementById("toast");
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    toast.classList.add("actionable");
+    toast.innerHTML = `
+      <span>${this.escapeHtml(message)}</span>
+      <button id="toast-undo-btn" class="toast-action">撤销</button>
+    `;
+    toast.classList.add("show");
+
+    const undoBtn = document.getElementById("toast-undo-btn");
+    if (undoBtn) {
+      undoBtn.onclick = () => {
+        toast.classList.remove("show", "actionable");
+        if (this.toastTimer) clearTimeout(this.toastTimer);
+        this.toastTimer = null;
+        onUndo();
+      };
+    }
+
+    this.toastTimer = setTimeout(() => {
+      toast.classList.remove("show", "actionable");
+      this.toastTimer = null;
+    }, 4000);
   }
 
   render() {
@@ -1096,7 +1215,6 @@ class AttentionReorderApp {
   renderHeader() {
     const header = document.getElementById("header");
     header.innerHTML = `
-      <h1>AI 注意力重排助手</h1>
       <p>新想法插入时，帮你重新分配今天的注意力</p>
     `;
   }
@@ -1129,6 +1247,7 @@ class AttentionReorderApp {
   }
 
   renderTaskGroup(title, tasks, className, draggable = false, dropZone = false) {
+    const emptyText = className === "group-now" ? "现在没有必须立刻处理的事" : "暂无任务";
     return `
       <div class="task-group ${className} ${dropZone ? "manual-drop-zone" : ""}">
         <div class="task-group-header">
@@ -1136,7 +1255,7 @@ class AttentionReorderApp {
           <span>${tasks.length} 项</span>
         </div>
         <div class="task-list">
-          ${tasks.length > 0 ? tasks.map((task) => this.renderTaskCard(task, className === "group-later", draggable)).join("") : `<div class="empty-group">暂无任务</div>`}
+          ${tasks.length > 0 ? tasks.map((task) => this.renderTaskCard(task, className === "group-later", draggable)).join("") : `<div class="empty-group">${emptyText}</div>`}
         </div>
       </div>
     `;
@@ -1166,10 +1285,14 @@ class AttentionReorderApp {
       remove_today: { text: "不放进今天", class: "rec-remove" }
     };
 
-    const change = manualLabels[task.manualStatus] || changeLabels[task.change] || changeLabels.same;
+    const change = manualLabels[task.manualStatus] || changeLabels[task.change] || null;
     const rec = recLabels[task.recommendation] || recLabels.do_today;
     const rank = task.currentRank || "-";
     const scoreWidth = Math.max(8, Math.min(100, ((task.score || 0) / 5) * 100));
+    const canComplete = !this.isOutOfToday(task);
+
+    const dragIcon = `<svg viewBox="64 64 896 896" focusable="false" fill="currentColor" class="drag-icon"><path d="M912 192H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 284H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 284H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM104 228a56 56 0 10112 0 56 56 0 10-112 0zm0 284a56 56 0 10112 0 56 56 0 10-112 0zm0 284a56 56 0 10112 0 56 56 0 10-112 0z" /></svg>`;
+
 
     return `
       <div
@@ -1177,22 +1300,28 @@ class AttentionReorderApp {
         data-task-id="${this.escapeHtml(task.id)}"
         data-draggable="${draggable ? "true" : "false"}"
       >
+        ${draggable ? `<span class="drag-handle">${dragIcon}</span>` : ""}
+        ${canComplete ? `
+          <button
+            class="complete-task-btn"
+            data-task-id="${this.escapeHtml(task.id)}"
+            aria-label="标记完成：${this.escapeHtml(task.title)}"
+            title="标记完成"
+          ></button>
+        ` : ""}
         <div class="task-rank">${rank}</div>
         <div class="task-content">
           <div class="task-header">
             <h3>${this.escapeHtml(task.title)}</h3>
-            <span class="label ${change.class}">${change.text}</span>
+            ${change && change.text !== "保持" ? `<span class="label ${change.class}">${change.text}</span>` : ""}
           </div>
           <div class="task-meta">
             ${task.deadline ? `<span class="deadline">截止 ${this.escapeHtml(task.deadline)}</span>` : ""}
             <span class="recommendation ${rec.class}">${rec.text}</span>
-            ${draggable ? `<span class="drag-handle">拖动</span>` : ""}
           </div>
           <p class="task-reason">${this.escapeHtml(task.reason)}</p>
           <div class="score-detail">
-            <div class="score-bar" style="width: ${scoreWidth}%">
-              <span>${(task.score || 0).toFixed(1)}</span>
-            </div>
+            <div class="score-bar" style="width: ${scoreWidth}%"></div>
           </div>
         </div>
       </div>
@@ -1245,6 +1374,8 @@ class AttentionReorderApp {
   renderIdeaSheet() {
     if (!this.state.isIdeaSheetOpen) return "";
 
+    const voiceFallbackAttr = this.state.speechSupported ? "" : `aria-describedby="voice-fallback-hint"`;
+
     return `
       <div id="idea-sheet-backdrop" class="sheet-backdrop"></div>
       <div class="idea-sheet" role="dialog" aria-modal="true" aria-labelledby="idea-sheet-title">
@@ -1271,7 +1402,15 @@ class AttentionReorderApp {
         </div>
 
         <div class="sheet-actions">
-          <button id="voice-btn" class="btn-voice" ${!this.state.speechSupported || this.state.isProcessing ? "disabled" : ""}>语音输入</button>
+          <div class="voice-action">
+            <button
+              id="voice-btn"
+              class="btn-voice ${this.state.speechSupported ? "" : "unsupported"}"
+              ${this.state.isProcessing ? "disabled" : ""}
+              ${voiceFallbackAttr}
+            >语音输入</button>
+            ${this.state.speechSupported ? "" : `<p id="voice-fallback-hint" class="voice-fallback-hint">当前浏览器不支持网页语音识别，可使用系统键盘语音输入。</p>`}
+          </div>
           <button id="reorder-btn" class="btn-primary ${this.state.isProcessing ? "processing" : ""}" ${this.state.isProcessing ? "disabled" : ""}>
             ${this.state.isProcessing ? "处理中..." : "新增并重排"}
           </button>
@@ -1289,6 +1428,7 @@ class AttentionReorderApp {
           <h3>AI 取舍解释</h3>
           <p>点击底部“新增想法”，查看 AI 如何把任务分到“现在做 / 今天晚点做 / 不放进今天”。</p>
         </div>
+        ${this.renderCompletedTasks()}
         ${this.renderResetFooter()}
       `;
       return;
@@ -1336,7 +1476,35 @@ class AttentionReorderApp {
           <div class="change-empty">本次没有明显调整，当前安排保持稳定。</div>
         `}
       </div>
+      ${this.renderCompletedTasks()}
       ${this.renderResetFooter()}
+    `;
+  }
+
+  renderCompletedTasks() {
+    const completedTasks = this.state.completedTasks || [];
+    if (completedTasks.length === 0) return "";
+
+    return `
+      <div class="completed-section">
+        <button
+          id="completed-toggle"
+          class="completed-toggle"
+          aria-expanded="${this.state.isCompletedExpanded ? "true" : "false"}"
+        >
+          <span>今日已完成 · ${completedTasks.length} 项</span>
+          <span class="completed-chevron">${this.state.isCompletedExpanded ? "收起" : "展开"}</span>
+        </button>
+        ${this.state.isCompletedExpanded ? `
+          <div class="completed-list">
+            ${completedTasks.map((task) => `
+              <div class="completed-item">
+                <span>${this.escapeHtml(task.title)}</span>
+              </div>
+            `).join("")}
+          </div>
+        ` : ""}
+      </div>
     `;
   }
 

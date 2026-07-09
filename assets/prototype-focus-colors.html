@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PROTOTYPE - Focus Color Variants</title>
+  <style>
+    /*
+      PROTOTYPE - wipe me.
+      Question: which primary color best fits a quiet attention / flow / today-action tool?
+      Six color variants are switchable via ?variant=A|B|C|D|E|F.
+    */
+    :root {
+      --bg: #f6f6f4;
+      --card: #ffffff;
+      --ink: #171717;
+      --muted: #747474;
+      --line: #deded9;
+      --soft: #f4f4f1;
+      --red: #c94747;
+      --focus: #168aad;
+      --focus-dark: #126782;
+      --focus-soft: rgba(22, 138, 173, 0.12);
+      --shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, textarea {
+      font: inherit;
+    }
+
+    .prototype-note {
+      max-width: 640px;
+      margin: 12px auto 0;
+      padding: 0 16px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .phone {
+      width: min(100vw, 430px);
+      min-height: 100vh;
+      margin: 0 auto;
+      border-left: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      background: var(--bg);
+      padding-bottom: 112px;
+    }
+
+    .goal-bar {
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(16px);
+      padding: 12px 16px;
+    }
+
+    .field-label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .goal-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .goal-row p {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.35;
+      font-weight: 750;
+    }
+
+    .btn-secondary,
+    .btn-primary,
+    .btn-voice,
+    .btn-icon {
+      min-height: 38px;
+      border: 0;
+      border-radius: 6px;
+      padding: 0 13px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .btn-primary {
+      background: var(--focus);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--focus-dark);
+    }
+
+    .btn-secondary {
+      background: var(--soft);
+      color: var(--ink);
+    }
+
+    .btn-voice {
+      border: 1px solid color-mix(in srgb, var(--focus) 55%, transparent);
+      background: transparent;
+      color: var(--focus);
+    }
+
+    .content {
+      padding: 16px;
+    }
+
+    .queue-header,
+    .group-header,
+    .task-header,
+    .task-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .queue-header h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .queue-count,
+    .group-header span,
+    .task-reason,
+    .deadline {
+      color: var(--muted);
+    }
+
+    .queue-count {
+      font-size: 13px;
+    }
+
+    .group {
+      margin-top: 18px;
+    }
+
+    .group-header h3 {
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .group-header span {
+      font-size: 13px;
+    }
+
+    .task-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .task-card {
+      position: relative;
+      display: grid;
+      grid-template-columns: 24px 30px minmax(0, 1fr);
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--card);
+      padding: 13px;
+    }
+
+    .group-now .task-card {
+      border-color: color-mix(in srgb, var(--focus) 52%, white);
+    }
+
+    .drag-handle {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 30px;
+      color: var(--muted);
+    }
+
+    .drag-handle.active {
+      color: var(--focus);
+    }
+
+    .drag-icon,
+    .complete-icon {
+      width: 16px;
+      height: 16px;
+    }
+
+    .task-rank {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .complete-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 30px;
+      min-width: 30px;
+      height: 30px;
+      min-height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--muted);
+      padding: 0;
+    }
+
+    .complete-btn.active {
+      border-color: color-mix(in srgb, var(--focus) 50%, white);
+      color: var(--focus);
+    }
+
+    .complete-icon {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .task-header {
+      align-items: flex-start;
+      padding-right: 32px;
+    }
+
+    .task-header h3 {
+      margin: 0;
+      min-width: 0;
+      font-size: 15px;
+      line-height: 1.3;
+    }
+
+    .group-now .task-header h3 {
+      font-size: 17px;
+    }
+
+    .pill {
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+    }
+
+    .rec-now {
+      color: var(--focus);
+    }
+
+    .rec-remove {
+      color: var(--red);
+    }
+
+    .task-meta {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+      margin: 6px 0;
+      font-size: 12px;
+    }
+
+    .task-reason {
+      margin: 0 0 8px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .score {
+      height: 2px;
+      border-radius: 999px;
+      background: #aaa9a3;
+    }
+
+    .group-now .score {
+      background: var(--focus);
+    }
+
+    .task-out {
+      grid-template-columns: 30px minmax(0, 1fr);
+      background: #fbfbfa;
+    }
+
+    .task-out .task-reason {
+      color: var(--muted);
+    }
+
+    .manual-status {
+      margin-top: 12px;
+      border-left: 3px solid var(--focus);
+      border-radius: 0 4px 4px 0;
+      background: var(--focus-soft);
+      color: var(--focus-dark);
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .reason-panel {
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--card);
+      padding: 14px;
+    }
+
+    .reason-panel h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .reason-panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .completed {
+      margin-top: 14px;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .bottom-action {
+      position: fixed;
+      left: 50%;
+      bottom: 78px;
+      z-index: 6;
+      width: min(360px, calc(100vw - 32px));
+      transform: translateX(-50%);
+    }
+
+    .bottom-action .btn-primary {
+      width: 100%;
+      border-radius: 999px;
+      box-shadow: 0 10px 28px color-mix(in srgb, var(--focus) 26%, transparent);
+    }
+
+    .sheet {
+      margin-top: 16px;
+      border: 1px solid color-mix(in srgb, var(--focus) 28%, var(--line));
+      border-radius: 10px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    .sheet h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 86px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 11px;
+      color: var(--ink);
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--focus);
+      box-shadow: 0 0 0 2px var(--focus-soft);
+    }
+
+    .sheet-actions {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .switcher {
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: 38px minmax(190px, 1fr) 38px;
+      align-items: center;
+      gap: 8px;
+      width: min(430px, calc(100vw - 24px));
+      transform: translateX(-50%);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      background: rgba(20, 20, 20, 0.92);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+      padding: 8px;
+      color: #fff;
+    }
+
+    .switcher button {
+      height: 38px;
+      border: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .variant-label {
+      display: grid;
+      gap: 2px;
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.25;
+    }
+
+    .variant-label strong {
+      font-size: 13px;
+    }
+
+    .variant-label span {
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 11px;
+    }
+
+    @media (max-width: 460px) {
+      .prototype-note { display: none; }
+      .phone {
+        border-left: 0;
+        border-right: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-note">PROTOTYPE - wipe me. 用左右箭头或底部切换器比较 5 个主色方案，只评估颜色，不改正式 UI。</div>
+
+  <main class="phone">
+    <section class="goal-bar">
+      <span class="field-label">今日目标</span>
+      <div class="goal-row">
+        <p>完成 AI 创意大赛 Demo 初赛提交</p>
+        <button class="btn-secondary">编辑</button>
+      </div>
+    </section>
+
+    <section class="content">
+      <div class="queue-header">
+        <h2>怎么安排今天</h2>
+        <span class="queue-count">共 5 项</span>
+      </div>
+
+      <div class="manual-status">已按你的调整保留顺序</div>
+
+      <section class="group group-now">
+        <div class="group-header">
+          <h3>现在做</h3>
+          <span>1 项</span>
+        </div>
+        <div class="task-list">
+          <article class="task-card">
+            <span class="drag-handle active" aria-hidden="true">
+              <svg class="drag-icon" viewBox="64 64 896 896" fill="currentColor"><path d="M912 192H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 284H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 284H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM104 228a56 56 0 10112 0 56 56 0 10-112 0zm0 284a56 56 0 10112 0 56 56 0 10-112 0zm0 284a56 56 0 10112 0 56 56 0 10-112 0z" /></svg>
+            </span>
+            <button class="complete-btn active" aria-label="标记完成">
+              <svg class="complete-icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg>
+            </button>
+            <div class="task-rank">1</div>
+            <div>
+              <div class="task-header">
+                <h3>搭建 Demo 首页</h3>
+                <span class="pill rec-now">立即做</span>
+              </div>
+              <div class="task-meta">
+                <span class="deadline">截止 今天下午</span>
+                <span class="pill rec-now">现在做</span>
+              </div>
+              <p class="task-reason">直接影响初赛展示效果，且和今日目标强相关。</p>
+              <div class="score" style="width: 88%"></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header">
+          <h3>今天晚点做</h3>
+          <span>3 项</span>
+        </div>
+        <div class="task-list">
+          <article class="task-card">
+            <span class="drag-handle" aria-hidden="true"><svg class="drag-icon" viewBox="64 64 896 896" fill="currentColor"><path d="M912 192H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 284H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8z" /></svg></span>
+            <button class="complete-btn" aria-label="标记完成"><svg class="complete-icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></button>
+            <div class="task-rank">2</div>
+            <div>
+              <div class="task-header"><h3>接入模型 API</h3><span class="pill">上升</span></div>
+              <div class="task-meta"><span class="deadline">截止 今晚</span><span class="pill">今天做</span></div>
+              <p class="task-reason">完成后可以让 Demo 从规则演示进入真实 AI 分析。</p>
+              <div class="score" style="width: 72%"></div>
+            </div>
+          </article>
+          <article class="task-card">
+            <span class="drag-handle" aria-hidden="true"><svg class="drag-icon" viewBox="64 64 896 896" fill="currentColor"><path d="M912 192H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 284H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8z" /></svg></span>
+            <button class="complete-btn" aria-label="标记完成"><svg class="complete-icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></button>
+            <div class="task-rank">3</div>
+            <div>
+              <div class="task-header"><h3>补充固定评测集</h3><span class="pill">新增</span></div>
+              <div class="task-meta"><span class="deadline">截止 今天</span><span class="pill">今天做</span></div>
+              <p class="task-reason">有助于比较不同模型在中文任务拆解上的表现。</p>
+              <div class="score" style="width: 62%"></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="group">
+        <div class="group-header">
+          <h3>不放进今天</h3>
+          <span>1 项</span>
+        </div>
+        <div class="task-list">
+          <article class="task-card task-out">
+            <div class="task-rank">-</div>
+            <div>
+              <div class="task-header"><h3>整理长期产品路线图</h3><span class="pill rec-remove">不放进今天</span></div>
+              <p class="task-reason">重要但不影响初赛提交，建议移出今天。</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="reason-panel">
+        <h3>本次重排摘要</h3>
+        <p>新想法加入后，系统优先保留和今日目标相关、截止时间明确、能推动 Demo 成型的事项。</p>
+        <div class="completed">今日已完成 · 2 项</div>
+      </section>
+
+      <section class="sheet">
+        <h3>新增想法</h3>
+        <label class="field-label" for="idea">想法内容</label>
+        <textarea id="idea">今晚要运动、洗地、洗澡</textarea>
+        <div class="sheet-actions">
+          <button class="btn-voice">语音输入</button>
+          <button class="btn-primary">新增并重排</button>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div class="bottom-action">
+    <button class="btn-primary">+ 新增想法</button>
+  </div>
+
+  <nav class="switcher" aria-label="Prototype variants">
+    <button id="prev" aria-label="上一个方案">‹</button>
+    <div class="variant-label">
+      <strong id="variant-title"></strong>
+      <span id="variant-meta"></span>
+    </div>
+    <button id="next" aria-label="下一个方案">›</button>
+  </nav>
+
+  <script>
+    const variants = [
+      {
+        key: "A",
+        name: "Flow Cyan",
+        focus: "#168AAD",
+        dark: "#126782",
+        soft: "rgba(22, 138, 173, 0.12)",
+        note: "清醒 / 流动 / 注意力回到行动"
+      },
+      {
+        key: "B",
+        name: "Focus Blue",
+        focus: "#3563E9",
+        dark: "#2448B8",
+        soft: "rgba(53, 99, 233, 0.10)",
+        note: "理性 / 效率 / SaaS 工具感"
+      },
+      {
+        key: "C",
+        name: "Mind Green",
+        focus: "#3A8F6A",
+        dark: "#2E7355",
+        soft: "rgba(58, 143, 106, 0.12)",
+        note: "平静 / 秩序 / 低压力"
+      },
+      {
+        key: "D",
+        name: "Signal Amber",
+        focus: "#D08A24",
+        dark: "#A96A15",
+        soft: "rgba(208, 138, 36, 0.12)",
+        note: "提醒 / 行动 / 今日优先级"
+      },
+      {
+        key: "E",
+        name: "Clarity Violet",
+        focus: "#6D5BD0",
+        dark: "#5242A8",
+        soft: "rgba(109, 91, 208, 0.11)",
+        note: "AI 感 / 思考感 / 创造力"
+      },
+      {
+        key: "F",
+        name: "Warm Flow",
+        focus: "#E08A1E",
+        dark: "#B96712",
+        soft: "rgba(224, 138, 30, 0.12)",
+        note: "温暖 / 启动感 / 不焦虑的行动"
+      }
+    ];
+
+    const params = new URLSearchParams(window.location.search);
+    const requested = (params.get("variant") || "A").toUpperCase();
+    let currentIndex = Math.max(0, variants.findIndex((variant) => variant.key === requested));
+
+    function applyVariant(index) {
+      const variant = variants[index];
+      document.documentElement.style.setProperty("--focus", variant.focus);
+      document.documentElement.style.setProperty("--focus-dark", variant.dark);
+      document.documentElement.style.setProperty("--focus-soft", variant.soft);
+      document.getElementById("variant-title").textContent = `${variant.key} — ${variant.name}`;
+      document.getElementById("variant-meta").textContent = `${variant.focus} · ${variant.note}`;
+
+      const nextParams = new URLSearchParams(window.location.search);
+      nextParams.set("variant", variant.key);
+      window.history.replaceState(null, "", `${window.location.pathname}?${nextParams.toString()}`);
+    }
+
+    function move(delta) {
+      currentIndex = (currentIndex + delta + variants.length) % variants.length;
+      applyVariant(currentIndex);
+    }
+
+    document.getElementById("prev").addEventListener("click", () => move(-1));
+    document.getElementById("next").addEventListener("click", () => move(1));
+    document.addEventListener("keydown", (event) => {
+      const tag = event.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || event.target.isContentEditable) return;
+      if (event.key === "ArrowLeft") move(-1);
+      if (event.key === "ArrowRight") move(1);
+    });
+
+    applyVariant(currentIndex);
+  </script>
+</body>
+</html>

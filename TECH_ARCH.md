@@ -626,7 +626,7 @@ check Web Speech API support
   |
   +-- supported -> start recognition -> fill rawInput
   |
-  +-- unsupported -> show fallback message -> use text input
+  +-- unsupported -> show fallback message -> use system keyboard voice input or text input
 ```
 
 ## 8. 任务抽取策略
@@ -997,13 +997,19 @@ attention_queue_demo_state
 
 `manualOutIds` 中的任务默认保持 `remove_today`，不被普通重排放回今天。若出现硬约束，只生成“建议放回今天”的解释，不直接覆盖用户移出。
 
+### 14.4 标记完成
+
+完成项只保存在前端本地状态，不进入 `/api/reorder` 请求，也不参与模型分析、规则排序或本地 fallback。标记完成时从 `currentQueue` 移除该任务，并清理引用该任务的 `manualOutIds` 和 `manualOrderConstraints`。
+
+撤销最近一次完成时，将任务恢复到今日队列末尾，不恢复旧手动排序约束或旧 `manual_out` 状态。初赛 Demo 不提供直接删除事项能力。
+
 ## 15. 异常处理
 
 | 场景 | 处理 |
 | --- | --- |
 | 输入为空 | 提示“请输入一个想法或任务” |
 | 未识别到任务 | 提示“未识别到可执行事项，可以换一种描述” |
-| 语音不可用 | 提示“当前浏览器不支持语音识别，请使用文字输入” |
+| 语音不可用 | 提示“当前浏览器不支持网页语音识别，可使用系统键盘语音输入或文字输入” |
 | 模型调用失败 | 后端回退到本地兜底逻辑，响应 `source: "fallback"` |
 | 模型 JSON 解析失败 | 后端丢弃无效输出并进入 fallback |
 | 屏幕过窄 | 使用单列布局 |
