@@ -401,7 +401,7 @@ class AttentionReorderApp {
       const result = await response.json();
       if (!Array.isArray(result.allTasks)) throw new Error("API result missing allTasks");
       if (result.source === "fallback") {
-        this.showToast("本次使用本地兜底规则完成重排");
+        this.showToast("已用备用规则完成重排");
       }
       return result;
     } catch (error) {
@@ -411,8 +411,8 @@ class AttentionReorderApp {
         source: "fallback",
         rulePreset: this.state.rulePreset,
         ruleProfile: this.getRuleProfile(),
-        summary: `本次使用本地兜底规则完成重排。${fallbackResult.summary}`,
-        warnings: ["后端 API 不可用，已使用本地兜底规则完成重排"]
+        summary: `当前网络或模型服务暂不可用，已用备用规则完成重排。${fallbackResult.summary}`,
+        warnings: ["当前网络或模型服务暂不可用，已用备用规则完成重排"]
       };
     }
   }
@@ -551,6 +551,7 @@ class AttentionReorderApp {
 
   splitTaskText(inputText) {
     const boundaryKeywords = ["还要", "顺便", "然后", "另外", "以及", "还有"];
+    const fillerOnly = new Set(["我", "突然", "刚", "想到", "刚想到", "突然想到", "我突然想到", "我刚想到", "想起来", "发现", "刚发现", "突然发现"]);
     const normalizedInput = boundaryKeywords.reduce(
       (text, keyword) => text.replaceAll(keyword, "，"),
       inputText
@@ -561,6 +562,7 @@ class AttentionReorderApp {
       .split(/[、，,；;\n]+/g)
       .map((taskText) => this.cleanTaskTitle(taskText))
       .filter((title) => title.length >= 2)
+      .filter((title) => !fillerOnly.has(title))
       .filter((title) => {
         if (seen.has(title)) return false;
         seen.add(title);
@@ -572,6 +574,7 @@ class AttentionReorderApp {
     return String(taskText || "")
       .trim()
       .replace(/[。.!！?？]+$/g, "")
+      .replace(/^(?:(我|突然|刚|忽然|才)?\s*(突然想到|刚想到|忽然想到|想到|想起来|发现|意识到|记起来|突然发现|刚发现)\s*)+/, "")
       .replace(/^(今天下午|今天晚上|今天上午|明天中午前|明天上午|明天下午|明天晚上|本周内|这周内|今天|今晚|明天|上午|下午|晚上|早上|中午|本周|这周)\s*/, "")
       .replace(/^(?:(先|再|想要|需要|一定要|必须|记得|可以|要|得|想|把)\s*)+/, "")
       .trim();
@@ -824,8 +827,19 @@ class AttentionReorderApp {
     const highPriority = tasks.filter((task) => task.score >= 4.0 && !this.isOutOfToday(task)).length;
     const removed = tasks.filter((task) => this.isOutOfToday(task)).length;
     const changed = tasks.filter((task) => task.change === "up" || task.change === "down").length;
+    const newTasks = tasks.filter((task) => task.change === "new");
+    const newNow = newTasks.filter((task) => task.recommendation === "do_now").length;
+    const newLater = newTasks.filter((task) => !this.isOutOfToday(task) && task.recommendation !== "do_now").length;
+    const newOut = newTasks.filter((task) => this.isOutOfToday(task)).length;
 
     let summary = "本次重排完成。";
+    if (newTasks.length > 0) {
+      const segments = [];
+      if (newNow > 0) segments.push(`${newNow} 项进入现在做`);
+      if (newLater > 0) segments.push(`${newLater} 项安排到今天晚点做`);
+      if (newOut > 0) segments.push(`${newOut} 项不放进今天`);
+      summary += ` 本次新增 ${newTasks.length} 项，${segments.join("，")}。`;
+    }
     if (highPriority > 0) summary += ` 发现 ${highPriority} 个高优先级任务。`;
     if (changed > 0) summary += ` ${changed} 个任务排名发生变化。`;
     if (removed > 0) summary += ` ${removed} 个任务不放进今天。`;
@@ -1319,6 +1333,7 @@ class AttentionReorderApp {
         <h2>怎么安排今天</h2>
         <span class="queue-count">共 ${total} 项</span>
       </div>
+      <p class="positioning-line">重排今日注意力，而不是追加待办。</p>
       ${this.state.lastManualMessage ? `<div class="manual-status">${this.escapeHtml(this.state.lastManualMessage)}</div>` : ""}
       ${this.renderTaskGroup("现在做", nowTasks, "group-now", true)}
       ${laterTasks.length > 0 ? this.renderTaskGroup("今天晚点做", laterTasks, "group-later", true) : ""}
@@ -1460,14 +1475,15 @@ class AttentionReorderApp {
     if (!this.state.isIdeaSheetOpen) return "";
 
     const voiceFallbackAttr = this.state.speechSupported ? "" : `aria-describedby="voice-fallback-hint"`;
+    const sheetBusyAttr = this.state.isProcessing ? `aria-busy="true"` : "";
 
     return `
       <div id="idea-sheet-backdrop" class="sheet-backdrop"></div>
-      <div class="idea-sheet" role="dialog" aria-modal="true" aria-labelledby="idea-sheet-title">
+      <div class="idea-sheet ${this.state.isProcessing ? "is-processing" : ""}" role="dialog" aria-modal="true" aria-labelledby="idea-sheet-title" ${sheetBusyAttr}>
         <div class="sheet-handle"></div>
         <div class="sheet-header">
           <h2 id="idea-sheet-title">新增想法</h2>
-          <button id="close-idea-sheet" class="btn-icon" aria-label="关闭">×</button>
+          <button id="close-idea-sheet" class="btn-icon" aria-label="关闭" ${this.state.isProcessing ? "disabled" : ""}>×</button>
         </div>
 
         <label class="field-label" for="input-text">想法内容</label>
@@ -1475,13 +1491,14 @@ class AttentionReorderApp {
           id="input-text"
           placeholder="输入你的想法，例如：今晚要运动、洗地、洗澡"
           rows="4"
+          ${this.state.isProcessing ? "disabled" : ""}
         >${this.escapeHtml(this.state.rawInput)}</textarea>
 
         <div class="examples-section">
           <p>快速体验示例</p>
           <div class="examples-list">
             ${DEMO_DATA.examples.map((example) => `
-              <button class="example-btn" data-example-id="${example.id}">${this.escapeHtml(example.name)}</button>
+              <button class="example-btn" data-example-id="${example.id}" ${this.state.isProcessing ? "disabled" : ""}>${this.escapeHtml(example.name)}</button>
             `).join("")}
           </div>
         </div>
@@ -1500,6 +1517,12 @@ class AttentionReorderApp {
             ${this.state.isProcessing ? "处理中..." : "新增并重排"}
           </button>
         </div>
+        ${this.state.isProcessing ? `
+          <div class="sheet-loading" role="status" aria-live="polite">
+            <div class="loading-spinner"></div>
+            <p>正在拆解想法并重排今天</p>
+          </div>
+        ` : ""}
       </div>
     `;
   }
@@ -1525,7 +1548,7 @@ class AttentionReorderApp {
     const warnings = result.warnings || [];
     const sourceLabels = {
       model: { text: "模型分析", class: "source-model" },
-      fallback: { text: "本地兜底", class: "source-fallback" },
+      fallback: { text: "备用规则", class: "source-fallback" },
       none: { text: "重新安排", class: "source-none" }
     };
     const source = sourceLabels[result.source];
@@ -1605,7 +1628,7 @@ class AttentionReorderApp {
           class="rule-details-toggle"
           type="button"
           aria-expanded="${this.state.isRuleDetailsOpen ? "true" : "false"}"
-        >${this.state.isRuleDetailsOpen ? "收起规则" : "查看规则"}</button>
+        >${this.state.isRuleDetailsOpen ? "收起排序规则" : "查看排序规则"}</button>
         ${this.state.isRuleDetailsOpen ? this.renderRuleDetails(profile, currentPreset) : ""}
       </div>
     `;

@@ -65,6 +65,7 @@ function buildSystemPrompt() {
     "你只从用户输入中抽取任务，并为每个任务补全评分维度。",
     "用户输入中的并列事项必须拆成独立任务，例如“今晚要运动、洗地、洗澡”应输出“运动”“洗地”“洗澡”三项。",
     "遇到顿号、逗号、换行、以及/还有/另外/顺便等连接词时，优先判断是否表示多个可执行事项。",
+    "忽略“我突然想到”“刚想到”“想到”“想起来”“发现”等口头引导语，它们不是任务标题，不能单独输出为任务。",
     "评分维度 urgency、goalImpact、blockingRisk、effort、energyFit、taskValue 必须是 1 到 5 的数字。",
     "category 必须是 submit、communicate、research、develop、life、other 之一。",
     "输出 JSON 对象，格式为 { extractedTasks: [], inputSummary: string, warnings: [] }。"

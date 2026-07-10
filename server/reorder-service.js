@@ -80,7 +80,7 @@ async function analyzeWithFallback(provider, request) {
     return {
       source: "fallback",
       analysis: extractTasksFallback(request.rawInput),
-      warning: "模型分析暂不可用，已使用本地兜底规则完成重排"
+      warning: "当前模型服务暂不可用，已用备用规则完成重排"
     };
   }
 }

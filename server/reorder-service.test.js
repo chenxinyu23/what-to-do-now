@@ -101,7 +101,7 @@ test("reorder service falls back when provider is not configured", async () => {
   assert.equal(result.rulePreset, "balanced");
   assert.equal(result.ruleProfile.label, "平衡");
   assert.equal(result.queue.length, 1);
-  assert.match(result.summary, /本地兜底/);
+  assert.match(result.summary, /备用规则/);
 });
 
 test("reorder service returns requested rule profile", async () => {
@@ -141,6 +141,17 @@ test("fallback extractor splits Chinese list punctuation into separate tasks", (
   assert.deepEqual(result.extractedTasks.map((task) => task.title), ["运动", "洗地", "洗澡"]);
   assert.deepEqual(result.extractedTasks.map((task) => task.deadlineText), ["今晚", "今晚", "今晚"]);
   assert.match(result.extractedTasks[0].scoreReasons.urgency, /今晚/);
+});
+
+test("fallback extractor ignores spoken filler before task boundaries", () => {
+  const result = extractTasksFallback("刚想到还要录制 1 分钟演示视频、检查线上链接、补一版项目说明");
+
+  assert.deepEqual(result.extractedTasks.map((task) => task.title), [
+    "录制 1 分钟演示视频",
+    "检查线上链接",
+    "补一版项目说明"
+  ]);
+  assert.ok(!result.extractedTasks.some((task) => task.title.includes("想到")));
 });
 
 test("reorder service adds separate fallback tasks for Chinese list input", async () => {

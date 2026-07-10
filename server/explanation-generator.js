@@ -64,8 +64,21 @@ function generateSummary(tasks, source, preservedManualConstraints, brokenManual
   const highPriority = tasks.filter((task) => task.score >= 4.0 && !isOutOfToday(task)).length;
   const removed = tasks.filter((task) => isOutOfToday(task)).length;
   const changed = tasks.filter((task) => task.change === "up" || task.change === "down").length;
+  const newTasks = tasks.filter((task) => task.change === "new");
+  const newNow = newTasks.filter((task) => task.recommendation === "do_now").length;
+  const newLater = newTasks.filter((task) => !isOutOfToday(task) && task.recommendation !== "do_now").length;
+  const newOut = newTasks.filter((task) => isOutOfToday(task)).length;
 
-  let summary = source === "fallback" ? "本次使用本地兜底规则完成重排。" : "本次重排完成。";
+  let summary = source === "fallback" ? "当前模型服务暂不可用，已用备用规则完成重排。" : "本次重排完成。";
+  if (newTasks.length > 0) {
+    const segments = [];
+    if (newNow > 0) segments.push(`${newNow} 项进入现在做`);
+    if (newLater > 0) segments.push(`${newLater} 项安排到今天晚点做`);
+    if (newOut > 0) segments.push(`${newOut} 项不放进今天`);
+    summary += ` 本次新增 ${newTasks.length} 项，${segments.join("，")}。`;
+  } else if (source === "none") {
+    summary += " 已按新的目标或排序偏好重新安排当前队列。";
+  }
   if (highPriority > 0) summary += ` 发现 ${highPriority} 个高优先级任务。`;
   if (changed > 0) summary += ` ${changed} 个任务排名发生变化。`;
   if (removed > 0) summary += ` ${removed} 个任务不放进今天。`;

@@ -1,5 +1,7 @@
 const DEFAULT_CATEGORY = "other";
 const TASK_BOUNDARY_KEYWORDS = ["还要", "顺便", "然后", "另外", "以及", "还有"];
+const FILLER_PREFIX_PATTERN = /^(?:(我|突然|刚|忽然|才)?\s*(突然想到|刚想到|忽然想到|想到|想起来|发现|意识到|记起来|突然发现|刚发现)\s*)+/;
+const FILLER_ONLY = new Set(["我", "突然", "刚", "想到", "刚想到", "突然想到", "我突然想到", "我刚想到", "想起来", "发现", "刚发现", "突然发现"]);
 const LIST_SEPARATORS = /[、，,；;\n]+/g;
 const DEADLINE_PATTERNS = [
   "今天下午",
@@ -49,11 +51,11 @@ function createFallbackDraft(title, inputText = "", deadlineText = "") {
         : hasDeadline
           ? `输入中包含截止时间：${deadlineText}`
           : "未识别到明确截止时间",
-      goalImpact: "本地兜底规则使用默认目标影响",
+      goalImpact: "备用规则使用默认目标影响",
       blockingRisk: "未识别到明显阻塞风险",
-      effort: "本地兜底规则使用默认耗时成本",
-      energyFit: "本地兜底规则使用默认精力匹配",
-      taskValue: "本地兜底规则使用默认任务价值"
+      effort: "备用规则使用默认耗时成本",
+      energyFit: "备用规则使用默认精力匹配",
+      taskValue: "备用规则使用默认任务价值"
     }
   };
 }
@@ -74,8 +76,8 @@ function extractTasksFallback(rawInput) {
 
   return {
     extractedTasks: tasks,
-    inputSummary: "本次使用本地兜底规则抽取任务。",
-    warnings: ["本次使用本地兜底规则完成重排"]
+    inputSummary: "本次使用备用规则抽取任务。",
+    warnings: ["当前模型服务暂不可用，已用备用规则完成重排"]
   };
 }
 
@@ -94,6 +96,7 @@ function splitTaskText(inputText) {
     .split(LIST_SEPARATORS)
     .map(cleanTaskTitle)
     .filter((title) => title.length >= 2)
+    .filter((title) => !FILLER_ONLY.has(title))
     .filter((title) => {
       if (seen.has(title)) return false;
       seen.add(title);
@@ -105,6 +108,7 @@ function cleanTaskTitle(taskText) {
   return String(taskText || "")
     .trim()
     .replace(/[。.!！?？]+$/g, "")
+    .replace(FILLER_PREFIX_PATTERN, "")
     .replace(/^(今天|今晚|明天|上午|下午|晚上|早上|中午|本周内|这周内|这周|本周)\s*/, "")
     .replace(/^(?:(先|再|想要|需要|一定要|必须|记得|可以|要|得|想|把)\s*)+/, "")
     .trim();

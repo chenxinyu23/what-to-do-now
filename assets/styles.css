@@ -152,6 +152,13 @@ h4 {
   border-radius: 0;
 }
 
+.positioning-line {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .task-group {
   margin-top: 18px;
 }
@@ -191,6 +198,11 @@ h4 {
 
 .task-card:hover {
   border-color: #cfcfca;
+}
+
+#today-queue > .task-group:nth-child(3) > .task-list > .task-card[data-task-id="task_demo_home"] {
+  color: rgb(124, 107, 192);
+  background-color: rgba(124, 107, 192, 0.12);
 }
 
 .task-later {
@@ -309,7 +321,7 @@ h4 {
 .task-reason {
   margin: 0 0 8px;
   line-height: 1.55;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .group-later .task-reason,
@@ -719,6 +731,10 @@ button:disabled {
   box-shadow: 0 -18px 48px rgba(0, 0, 0, 0.12);
 }
 
+.idea-sheet.is-processing {
+  overflow: hidden;
+}
+
 .sheet-handle {
   width: 42px;
   height: 4px;
@@ -755,6 +771,42 @@ button:disabled {
   grid-template-columns: 1fr 1.4fr;
   gap: 10px;
   margin-top: 14px;
+}
+
+.sheet-loading {
+  position: absolute;
+  inset: 52px 0 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(2px);
+  color: var(--muted);
+  text-align: center;
+  pointer-events: auto;
+}
+
+.sheet-loading p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.loading-spinner {
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--line);
+  border-top-color: var(--focus);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .examples-section {

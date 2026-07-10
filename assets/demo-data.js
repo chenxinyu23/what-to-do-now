@@ -80,8 +80,8 @@ const DEMO_DATA = {
   examples: [
     {
       id: "example_1",
-      name: "比赛报名场景",
-      input: "我突然想到还要问老师推荐信，晚上顺便看一下竞品，明天中午前要交报名材料。",
+      name: "Demo 提交场景",
+      input: "刚想到还要录制 1 分钟演示视频、检查线上链接、补一版项目说明。",
       extractedTasks: [
         {
           title: "提交报名材料",
