@@ -859,6 +859,120 @@ button:disabled {
   line-height: 1.5;
 }
 
+.rule-panel {
+  margin: 18px 0 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.rule-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.rule-panel-header h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.rule-panel-header p,
+.rule-dirty,
+.rule-details p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rule-preset-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rule-preset-btn {
+  display: block;
+  min-height: 58px;
+  border: 1px solid var(--line);
+  background: transparent;
+  padding: 8px 10px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.rule-preset-btn.active {
+  border-color: rgba(47, 125, 140, 0.5);
+  background: var(--focus-soft);
+  color: var(--focus-dark);
+}
+
+.rule-preset-btn span,
+.rule-preset-btn small {
+  display: block;
+}
+
+.rule-preset-btn span {
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rule-preset-btn small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.rule-dirty {
+  margin-top: 8px;
+  color: var(--focus-dark);
+}
+
+.rule-details-toggle {
+  min-height: 30px;
+  margin-top: 10px;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rule-details {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+
+.weight-list {
+  display: grid;
+  gap: 6px;
+}
+
+.weight-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.weight-row strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.rule-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
 .changes-list,
 .change-events-list {
   display: grid;

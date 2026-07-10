@@ -1,10 +1,13 @@
+const { getRuleProfile } = require("./rule-profiles");
+
 function clampScore(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return 3;
   return Math.min(5, Math.max(1, numeric));
 }
 
-function calculateScore(task) {
+function calculateScore(task, rulePreset = "balanced") {
+  const { ruleProfile } = getRuleProfile(rulePreset);
   const urgency = clampScore(task.urgency);
   const goalImpact = clampScore(task.goalImpact);
   const blockingRisk = clampScore(task.blockingRisk);
@@ -13,17 +16,21 @@ function calculateScore(task) {
   const effort = clampScore(task.effort);
 
   const baseScore =
-    urgency * 0.30 +
-    goalImpact * 0.25 +
-    blockingRisk * 0.20 +
-    taskValue * 0.15 +
-    energyFit * 0.10;
+    urgency * ruleProfile.weights.urgency +
+    goalImpact * ruleProfile.weights.goalImpact +
+    blockingRisk * ruleProfile.weights.blockingRisk +
+    taskValue * ruleProfile.weights.taskValue +
+    energyFit * ruleProfile.weights.energyFit;
 
-  const effortPenalty = effort >= 5 ? 0.35 : effort === 4 ? 0.20 : effort <= 2 ? -0.10 : 0;
-  return Math.round((baseScore - effortPenalty) * 100) / 100;
+  const effortAdjustment =
+    effort >= 5 ? ruleProfile.effortPolicy.high :
+      effort === 4 ? ruleProfile.effortPolicy.mediumHigh :
+        effort <= 2 ? ruleProfile.effortPolicy.low :
+          0;
+  return Math.round((baseScore + effortAdjustment) * 100) / 100;
 }
 
-function scoreTasks(tasks) {
+function scoreTasks(tasks, rulePreset = "balanced") {
   return tasks.map((task) => ({
     ...task,
     urgency: clampScore(task.urgency),
@@ -32,7 +39,7 @@ function scoreTasks(tasks) {
     effort: clampScore(task.effort),
     energyFit: clampScore(task.energyFit),
     taskValue: clampScore(task.taskValue),
-    score: calculateScore(task)
+    score: calculateScore(task, rulePreset)
   }));
 }
 

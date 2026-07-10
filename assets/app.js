@@ -1,3 +1,30 @@
+const RULE_PROFILES = {
+  balanced: {
+    label: "平衡",
+    description: "综合考虑截止、目标、阻塞和任务价值。",
+    weights: { urgency: 0.30, goalImpact: 0.25, blockingRisk: 0.20, taskValue: 0.15, energyFit: 0.10 },
+    effortPolicy: { high: -0.35, mediumHigh: -0.20, low: 0.10 }
+  },
+  deadline_first: {
+    label: "截止优先",
+    description: "更早处理临近截止的事情。",
+    weights: { urgency: 0.40, goalImpact: 0.20, blockingRisk: 0.20, taskValue: 0.10, energyFit: 0.10 },
+    effortPolicy: { high: -0.35, mediumHigh: -0.20, low: 0.10 }
+  },
+  goal_first: {
+    label: "目标优先",
+    description: "更早处理推动今日目标的事情。",
+    weights: { urgency: 0.22, goalImpact: 0.38, blockingRisk: 0.18, taskValue: 0.14, energyFit: 0.08 },
+    effortPolicy: { high: -0.35, mediumHigh: -0.20, low: 0.10 }
+  },
+  low_effort_first: {
+    label: "低负担优先",
+    description: "优先插入更短、更容易完成的事情。",
+    weights: { urgency: 0.25, goalImpact: 0.22, blockingRisk: 0.18, taskValue: 0.13, energyFit: 0.12 },
+    effortPolicy: { high: -0.55, mediumHigh: -0.35, low: 0.20 }
+  }
+};
+
 class AttentionReorderApp {
   constructor() {
     this.storageKey = "attention_queue_demo_state";
@@ -15,6 +42,9 @@ class AttentionReorderApp {
       reorderResult: null,
       manualOrderConstraints: [],
       manualOutIds: [],
+      rulePreset: "balanced",
+      isRuleDirty: false,
+      isRuleDetailsOpen: false,
       lastManualMessage: "",
       lastCompletedTask: null,
       isCompletedExpanded: false,
@@ -63,6 +93,14 @@ class AttentionReorderApp {
     }));
   }
 
+  normalizeRulePreset(rulePreset) {
+    return Object.prototype.hasOwnProperty.call(RULE_PROFILES, rulePreset) ? rulePreset : "balanced";
+  }
+
+  getRuleProfile(rulePreset = this.state.rulePreset) {
+    return RULE_PROFILES[this.normalizeRulePreset(rulePreset)];
+  }
+
   loadSavedState() {
     try {
       const rawState = localStorage.getItem(this.storageKey);
@@ -81,6 +119,9 @@ class AttentionReorderApp {
         reorderResult: parsed.reorderResult || null,
         manualOrderConstraints: parsed.manualOrderConstraints || [],
         manualOutIds: parsed.manualOutIds || [],
+        rulePreset: this.normalizeRulePreset(parsed.rulePreset),
+        isRuleDirty: Boolean(parsed.isRuleDirty),
+        isRuleDetailsOpen: Boolean(parsed.isRuleDetailsOpen),
         lastManualMessage: parsed.lastManualMessage || "",
         isCompletedExpanded: Boolean(parsed.isCompletedExpanded),
         goalDraft: parsed.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
@@ -104,6 +145,9 @@ class AttentionReorderApp {
         reorderResult: this.state.reorderResult,
         manualOrderConstraints: this.state.manualOrderConstraints,
         manualOutIds: this.state.manualOutIds,
+        rulePreset: this.state.rulePreset,
+        isRuleDirty: this.state.isRuleDirty,
+        isRuleDetailsOpen: this.state.isRuleDetailsOpen,
         lastManualMessage: this.state.lastManualMessage,
         isCompletedExpanded: this.state.isCompletedExpanded,
         isGoalDirty: this.state.isGoalDirty
@@ -125,6 +169,9 @@ class AttentionReorderApp {
     this.state.reorderResult = null;
     this.state.manualOrderConstraints = [];
     this.state.manualOutIds = [];
+    this.state.rulePreset = "balanced";
+    this.state.isRuleDirty = false;
+    this.state.isRuleDetailsOpen = false;
     this.state.lastManualMessage = "";
     this.state.lastCompletedTask = null;
     this.state.isCompletedExpanded = false;
@@ -148,6 +195,8 @@ class AttentionReorderApp {
     const cancelGoalBtn = document.getElementById("cancel-goal-btn");
     const saveGoalBtn = document.getElementById("save-goal-btn");
     const rerankGoalBtn = document.getElementById("rerank-goal-btn");
+    const rerankRuleBtn = document.getElementById("rerank-rule-btn");
+    const ruleDetailsBtn = document.getElementById("rule-details-toggle");
     const goalDraft = document.getElementById("goal-draft");
 
     if (openIdeaBtn) openIdeaBtn.onclick = () => this.openIdeaSheet();
@@ -160,6 +209,8 @@ class AttentionReorderApp {
     if (cancelGoalBtn) cancelGoalBtn.onclick = () => this.cancelGoalEdit();
     if (saveGoalBtn) saveGoalBtn.onclick = () => this.saveGoalEdit();
     if (rerankGoalBtn) rerankGoalBtn.onclick = () => this.handleRerankOnly();
+    if (rerankRuleBtn) rerankRuleBtn.onclick = () => this.handleRerankOnly();
+    if (ruleDetailsBtn) ruleDetailsBtn.onclick = () => this.toggleRuleDetails();
 
     if (goalDraft) {
       goalDraft.oninput = (event) => {
@@ -185,6 +236,10 @@ class AttentionReorderApp {
         const exampleId = event.currentTarget.dataset.exampleId;
         this.loadExample(exampleId);
       };
+    });
+
+    document.querySelectorAll(".rule-preset-btn").forEach((btn) => {
+      btn.onclick = (event) => this.selectRulePreset(event.currentTarget.dataset.rulePreset);
     });
 
     document.querySelectorAll(".complete-task-btn").forEach((btn) => {
@@ -242,6 +297,8 @@ class AttentionReorderApp {
       this.state.currentQueue = result.allTasks;
       this.state.reorderResult = result;
       this.state.isProcessing = false;
+      this.state.rulePreset = this.normalizeRulePreset(result.rulePreset || this.state.rulePreset);
+      this.state.isRuleDirty = false;
       this.state.rawInput = "";
       this.state.isIdeaSheetOpen = false;
       this.persistState();
@@ -269,6 +326,8 @@ class AttentionReorderApp {
       this.state.reorderResult = result;
       this.state.isProcessing = false;
       this.state.isGoalDirty = false;
+      this.state.rulePreset = this.normalizeRulePreset(result.rulePreset || this.state.rulePreset);
+      this.state.isRuleDirty = false;
       this.persistState();
       this.render();
       this.showToast("已按新的今日目标重新安排");
@@ -312,6 +371,22 @@ class AttentionReorderApp {
     this.render();
   }
 
+  selectRulePreset(rulePreset) {
+    const nextPreset = this.normalizeRulePreset(rulePreset);
+    if (nextPreset === this.state.rulePreset) return;
+
+    this.state.rulePreset = nextPreset;
+    this.state.isRuleDirty = true;
+    this.persistState();
+    this.render();
+  }
+
+  toggleRuleDetails() {
+    this.state.isRuleDetailsOpen = !this.state.isRuleDetailsOpen;
+    this.persistState();
+    this.render();
+  }
+
   async requestReorder(inputText, previousQueue) {
     const requestBody = this.buildReorderRequest(inputText);
 
@@ -334,6 +409,8 @@ class AttentionReorderApp {
       return {
         ...fallbackResult,
         source: "fallback",
+        rulePreset: this.state.rulePreset,
+        ruleProfile: this.getRuleProfile(),
         summary: `本次使用本地兜底规则完成重排。${fallbackResult.summary}`,
         warnings: ["后端 API 不可用，已使用本地兜底规则完成重排"]
       };
@@ -344,6 +421,7 @@ class AttentionReorderApp {
     return {
       rawInput: inputText,
       todayGoal: this.state.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
+      rulePreset: this.state.rulePreset,
       currentQueue: this.getTodayTasks(this.state.currentQueue),
       outOfToday: this.getOutOfTodayTasks(this.state.currentQueue),
       manualOrderConstraints: this.state.manualOrderConstraints,
@@ -559,18 +637,23 @@ class AttentionReorderApp {
   }
 
   scoringEngine(tasks) {
+    const ruleProfile = this.getRuleProfile();
     return tasks.map((task) => {
       const score =
-        task.urgency * 0.30 +
-        task.goalImpact * 0.25 +
-        task.blockingRisk * 0.20 +
-        task.taskValue * 0.15 +
-        task.energyFit * 0.10;
-      const effortPenalty = task.effort >= 5 ? 0.35 : task.effort === 4 ? 0.20 : task.effort <= 2 ? -0.10 : 0;
+        task.urgency * ruleProfile.weights.urgency +
+        task.goalImpact * ruleProfile.weights.goalImpact +
+        task.blockingRisk * ruleProfile.weights.blockingRisk +
+        task.taskValue * ruleProfile.weights.taskValue +
+        task.energyFit * ruleProfile.weights.energyFit;
+      const effortAdjustment =
+        task.effort >= 5 ? ruleProfile.effortPolicy.high :
+          task.effort === 4 ? ruleProfile.effortPolicy.mediumHigh :
+            task.effort <= 2 ? ruleProfile.effortPolicy.low :
+              0;
 
       return {
         ...task,
-        score: Math.round((score - effortPenalty) * 100) / 100
+        score: Math.round((score + effortAdjustment) * 100) / 100
       };
     });
   }
@@ -1031,6 +1114,8 @@ class AttentionReorderApp {
     const tasks = this.cloneTasks(this.state.currentQueue);
     return {
       source: "fallback",
+      rulePreset: this.state.rulePreset,
+      ruleProfile: this.getRuleProfile(),
       summary,
       inputText: this.state.rawInput,
       extractedTasks: this.state.extractedTasks,
@@ -1428,6 +1513,7 @@ class AttentionReorderApp {
           <h3>AI 取舍解释</h3>
           <p>点击底部“新增想法”，查看 AI 如何把任务分到“现在做 / 今天晚点做 / 不放进今天”。</p>
         </div>
+        ${this.renderRulePanel()}
         ${this.renderCompletedTasks()}
         ${this.renderResetFooter()}
       `;
@@ -1476,9 +1562,91 @@ class AttentionReorderApp {
           <div class="change-empty">本次没有明显调整，当前安排保持稳定。</div>
         `}
       </div>
+      ${this.renderRulePanel()}
       ${this.renderCompletedTasks()}
       ${this.renderResetFooter()}
     `;
+  }
+
+  renderRulePanel() {
+    const currentPreset = this.normalizeRulePreset(this.state.rulePreset);
+    const profile = this.getRuleProfile(currentPreset);
+    const presets = [
+      ["balanced", RULE_PROFILES.balanced],
+      ["deadline_first", RULE_PROFILES.deadline_first],
+      ["goal_first", RULE_PROFILES.goal_first],
+      ["low_effort_first", RULE_PROFILES.low_effort_first]
+    ];
+
+    return `
+      <div class="rule-panel">
+        <div class="rule-panel-header">
+          <div>
+            <h3>当前排序偏好</h3>
+            <p>${this.escapeHtml(profile.description)}</p>
+          </div>
+          ${this.state.isRuleDirty ? `<button id="rerank-rule-btn" class="btn-primary compact" ${this.state.isProcessing ? "disabled" : ""}>重新安排</button>` : ""}
+        </div>
+        <div class="rule-preset-list" role="list" aria-label="排序偏好">
+          ${presets.map(([preset, item]) => `
+            <button
+              class="rule-preset-btn ${preset === currentPreset ? "active" : ""}"
+              data-rule-preset="${preset}"
+              type="button"
+            >
+              <span>${this.escapeHtml(item.label)}</span>
+              <small>${this.escapeHtml(item.description)}</small>
+            </button>
+          `).join("")}
+        </div>
+        ${this.state.isRuleDirty ? `<p class="rule-dirty">偏好已修改，下次新增或点击重新安排后生效。</p>` : ""}
+        <button
+          id="rule-details-toggle"
+          class="rule-details-toggle"
+          type="button"
+          aria-expanded="${this.state.isRuleDetailsOpen ? "true" : "false"}"
+        >${this.state.isRuleDetailsOpen ? "收起规则" : "查看规则"}</button>
+        ${this.state.isRuleDetailsOpen ? this.renderRuleDetails(profile, currentPreset) : ""}
+      </div>
+    `;
+  }
+
+  renderRuleDetails(profile, rulePreset) {
+    const weightLabels = {
+      urgency: "截止紧急度",
+      goalImpact: "今日目标影响",
+      blockingRisk: "阻塞风险",
+      taskValue: "任务价值",
+      energyFit: "精力匹配"
+    };
+    const weights = Object.entries(profile.weights || {});
+    const effort = profile.effortPolicy || {};
+
+    return `
+      <div class="rule-details">
+        <p>AI 负责理解任务，规则引擎负责最终排序。手动排序、移出今天、标记完成优先于普通分数；硬截止和阻塞风险可能打破手动排序。</p>
+        <div class="weight-list">
+          ${weights.map(([key, value]) => `
+            <div class="weight-row">
+              <span>${this.escapeHtml(weightLabels[key] || key)}</span>
+              <strong>${Math.round(value * 100)}%</strong>
+            </div>
+          `).join("")}
+          <div class="weight-row">
+            <span>耗时成本</span>
+            <strong>${this.escapeHtml(this.getEffortPolicyText(effort))}</strong>
+          </div>
+        </div>
+        <p class="rule-code">当前生效规则：${this.escapeHtml(rulePreset)}</p>
+      </div>
+    `;
+  }
+
+  getEffortPolicyText(effortPolicy) {
+    const high = Number(effortPolicy.high || 0);
+    const mediumHigh = Number(effortPolicy.mediumHigh || 0);
+    const low = Number(effortPolicy.low || 0);
+    return `高耗时 ${high.toFixed(2)}，偏高 ${mediumHigh.toFixed(2)}，低耗时 +${low.toFixed(2)}`;
   }
 
   renderCompletedTasks() {

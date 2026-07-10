@@ -1,4 +1,5 @@
 const { clampScore } = require("./scoring-engine");
+const { getRuleProfile } = require("./rule-profiles");
 
 const CATEGORIES = new Set(["submit", "communicate", "research", "develop", "life", "other"]);
 
@@ -67,9 +68,11 @@ function normalizeAnalysisResult(rawResult) {
 
 function normalizeReorderRequest(body = {}) {
   const request = ensureObject(body, "request body");
+  const { rulePreset } = getRuleProfile(String(request.rulePreset || "balanced"));
   return {
     rawInput: String(request.rawInput || "").trim(),
     todayGoal: String(request.todayGoal || "完成 AI 创意大赛 Demo 初赛提交").trim(),
+    rulePreset,
     currentQueue: Array.isArray(request.currentQueue) ? request.currentQueue : [],
     outOfToday: Array.isArray(request.outOfToday) ? request.outOfToday : [],
     manualOrderConstraints: Array.isArray(request.manualOrderConstraints) ? request.manualOrderConstraints : [],

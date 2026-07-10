@@ -1003,7 +1003,13 @@ attention_queue_demo_state
 
 撤销最近一次完成时，将任务恢复到今日队列末尾，不恢复旧手动排序约束或旧 `manual_out` 状态。初赛 Demo 不提供直接删除事项能力。
 
-## 15. 异常处理
+## 15. 排序规则可见与偏好预设
+
+前端请求 `/api/reorder` 时可带 `rulePreset`，后端规范化为 `balanced | deadline_first | goal_first | low_effort_first`，未知值回退 `balanced`。响应返回实际生效的 `rulePreset` 和 `ruleProfile`，前端用它展示规则详情。
+
+偏好预设只调整现有评分权重和 `effort` 成本策略，不新增维度，不改变硬约束、手动排序、手动移出或标记完成规则。用户切换偏好后保存到 localStorage，但不自动重排；用户点击“重新安排”后用空输入走现有重排流程。
+
+## 16. 异常处理
 
 | 场景 | 处理 |
 | --- | --- |

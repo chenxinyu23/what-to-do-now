@@ -1,6 +1,7 @@
 const { extractTasksFallback } = require("./fallback-extractor");
 const { normalizeAnalysisResult, normalizeReorderRequest } = require("./schema");
 const { scoreTasks } = require("./scoring-engine");
+const { getRuleProfile } = require("./rule-profiles");
 const { applyManualOutRules, isOutOfToday, reorderTasks } = require("./reorder-engine");
 const { explainTasks, generateChangeEvents, generateSummary } = require("./explanation-generator");
 
@@ -8,11 +9,12 @@ function createReorderService({ provider } = {}) {
   return {
     async reorder(rawRequest) {
       const request = normalizeReorderRequest(rawRequest);
+      const rulePayload = getRuleProfile(request.rulePreset);
       const previousTasks = normalizeExistingTasks([...request.currentQueue, ...request.outOfToday]);
       const analysisPayload = await analyzeWithFallback(provider, request);
       const newTasks = normalizeDrafts(analysisPayload.analysis.extractedTasks, request.rawInput);
       const mergedTasks = mergeWithExistingTasks(previousTasks, newTasks);
-      const scoredTasks = scoreTasks(mergedTasks);
+      const scoredTasks = scoreTasks(mergedTasks, rulePayload.rulePreset);
       const manuallyFilteredTasks = applyManualOutRules(scoredTasks, request.manualOutIds);
       const reorderPayload = reorderTasks(manuallyFilteredTasks, request.manualOrderConstraints);
       const explainedTasks = explainTasks(
@@ -28,6 +30,8 @@ function createReorderService({ provider } = {}) {
 
       return {
         source: analysisPayload.source,
+        rulePreset: rulePayload.rulePreset,
+        ruleProfile: rulePayload.ruleProfile,
         summary: generateSummary(
           explainedTasks,
           analysisPayload.source,

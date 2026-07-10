@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { calculateScore } = require("./scoring-engine");
+const { calculateScore, scoreTasks } = require("./scoring-engine");
 const { reorderTasks } = require("./reorder-engine");
 const { createReorderService } = require("./reorder-service");
 const { extractTasksFallback } = require("./fallback-extractor");
@@ -20,6 +20,35 @@ test("calculateScore applies effort as a cost dimension", () => {
 
   assert.equal(lowEffortScore, 3.8);
   assert.equal(highEffortScore, 3.35);
+});
+
+test("scoreTasks applies rule preset weights", () => {
+  const tasks = [
+    {
+      id: "deadline_task",
+      urgency: 5,
+      goalImpact: 2,
+      blockingRisk: 2,
+      effort: 3,
+      energyFit: 3,
+      taskValue: 2
+    },
+    {
+      id: "goal_task",
+      urgency: 2,
+      goalImpact: 5,
+      blockingRisk: 2,
+      effort: 3,
+      energyFit: 3,
+      taskValue: 3
+    }
+  ];
+
+  const deadlineFirst = scoreTasks(tasks, "deadline_first");
+  const goalFirst = scoreTasks(tasks, "goal_first");
+
+  assert.ok(deadlineFirst.find((task) => task.id === "deadline_task").score > deadlineFirst.find((task) => task.id === "goal_task").score);
+  assert.ok(goalFirst.find((task) => task.id === "goal_task").score > goalFirst.find((task) => task.id === "deadline_task").score);
 });
 
 test("reorderTasks preserves manual order unless the later task has a hard constraint", () => {
@@ -69,8 +98,41 @@ test("reorder service falls back when provider is not configured", async () => {
   });
 
   assert.equal(result.source, "fallback");
+  assert.equal(result.rulePreset, "balanced");
+  assert.equal(result.ruleProfile.label, "平衡");
   assert.equal(result.queue.length, 1);
   assert.match(result.summary, /本地兜底/);
+});
+
+test("reorder service returns requested rule profile", async () => {
+  const service = createReorderService({ provider: { isConfigured: () => false } });
+  const result = await service.reorder({
+    rawInput: "今晚必须提交材料",
+    rulePreset: "goal_first",
+    currentQueue: [],
+    outOfToday: [],
+    manualOrderConstraints: [],
+    manualOutIds: []
+  });
+
+  assert.equal(result.rulePreset, "goal_first");
+  assert.equal(result.ruleProfile.label, "目标优先");
+  assert.equal(result.ruleProfile.weights.goalImpact, 0.38);
+});
+
+test("reorder service falls back to balanced for unknown rule preset", async () => {
+  const service = createReorderService({ provider: { isConfigured: () => false } });
+  const result = await service.reorder({
+    rawInput: "今晚必须提交材料",
+    rulePreset: "custom_formula",
+    currentQueue: [],
+    outOfToday: [],
+    manualOrderConstraints: [],
+    manualOutIds: []
+  });
+
+  assert.equal(result.rulePreset, "balanced");
+  assert.equal(result.ruleProfile.label, "平衡");
 });
 
 test("fallback extractor splits Chinese list punctuation into separate tasks", () => {
