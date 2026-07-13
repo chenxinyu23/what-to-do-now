@@ -1289,6 +1289,7 @@ class AttentionReorderApp {
 
     const scoreWidth = Math.max(8, Math.min(100, ((currentTask.score || 0) / 5) * 100));
     const total = this.getTodayTasks(this.state.currentQueue).length + this.getOutOfTodayTasks(this.state.currentQueue).length;
+    const pendulum = this.renderFocusPendulum(queue);
 
     container.innerHTML = `
       <span class="screen-number" aria-hidden="true">01</span>
@@ -1306,14 +1307,31 @@ class AttentionReorderApp {
             <i style="width: ${scoreWidth}%"></i>
           </div>
         </div>
-        <div class="focus-orbit" aria-hidden="true">
-          <div class="orbit-ring orbit-ring-one"></div>
-          <div class="orbit-ring orbit-ring-two"></div>
-          <span>01</span>
-        </div>
+        ${pendulum}
       </section>
       ${this.renderInlineIdeaComposer()}
       <button class="scroll-cue" type="button" data-scroll-target="today-queue">下滑 · 还要做什么</button>
+    `;
+  }
+
+  renderFocusPendulum(queue) {
+    const slots = ["现在", "稍后", "晚点"];
+    const positions = ["one", "two", "three"];
+    const tasks = queue.slice(0, 3);
+
+    return `
+      <div class="focus-pendulum" aria-hidden="true">
+        <div class="pendulum-stage">
+          <div class="pivot"></div>
+          <div class="needle"></div>
+          ${tasks.map((task, index) => `
+            <article class="timeline-card ${positions[index]}">
+              <strong>${slots[index]}</strong>
+              <span>${this.escapeHtml(task.title)}</span>
+            </article>
+          `).join("")}
+        </div>
+      </div>
     `;
   }
 
