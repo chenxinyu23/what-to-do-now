@@ -28,9 +28,6 @@ const RULE_PROFILES = {
 class AttentionReorderApp {
   constructor() {
     this.storageKey = "attention_queue_demo_state";
-    this.dragState = null;
-    this.longPressTimer = null;
-    this.pressStartPos = null;
     this.toastTimer = null;
     this.state = {
       rawInput: "",
@@ -45,6 +42,7 @@ class AttentionReorderApp {
       rulePreset: "balanced",
       isRuleDirty: false,
       isRuleDetailsOpen: false,
+      isChangeDetailsOpen: false,
       lastManualMessage: "",
       lastCompletedTask: null,
       isCompletedExpanded: false,
@@ -122,6 +120,7 @@ class AttentionReorderApp {
         rulePreset: this.normalizeRulePreset(parsed.rulePreset),
         isRuleDirty: Boolean(parsed.isRuleDirty),
         isRuleDetailsOpen: Boolean(parsed.isRuleDetailsOpen),
+        isChangeDetailsOpen: Boolean(parsed.isChangeDetailsOpen),
         lastManualMessage: parsed.lastManualMessage || "",
         isCompletedExpanded: Boolean(parsed.isCompletedExpanded),
         goalDraft: parsed.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
@@ -148,6 +147,7 @@ class AttentionReorderApp {
         rulePreset: this.state.rulePreset,
         isRuleDirty: this.state.isRuleDirty,
         isRuleDetailsOpen: this.state.isRuleDetailsOpen,
+        isChangeDetailsOpen: this.state.isChangeDetailsOpen,
         lastManualMessage: this.state.lastManualMessage,
         isCompletedExpanded: this.state.isCompletedExpanded,
         isGoalDirty: this.state.isGoalDirty
@@ -172,6 +172,7 @@ class AttentionReorderApp {
     this.state.rulePreset = "balanced";
     this.state.isRuleDirty = false;
     this.state.isRuleDetailsOpen = false;
+    this.state.isChangeDetailsOpen = false;
     this.state.lastManualMessage = "";
     this.state.lastCompletedTask = null;
     this.state.isCompletedExpanded = false;
@@ -184,7 +185,6 @@ class AttentionReorderApp {
   }
 
   bindEvents() {
-    const openIdeaBtn = document.getElementById("open-idea-btn");
     const reorderBtn = document.getElementById("reorder-btn");
     const inputText = document.getElementById("input-text");
     const voiceBtn = document.getElementById("voice-btn");
@@ -197,9 +197,9 @@ class AttentionReorderApp {
     const rerankGoalBtn = document.getElementById("rerank-goal-btn");
     const rerankRuleBtn = document.getElementById("rerank-rule-btn");
     const ruleDetailsBtn = document.getElementById("rule-details-toggle");
+    const changeDetailsBtn = document.getElementById("change-details-toggle");
     const goalDraft = document.getElementById("goal-draft");
 
-    if (openIdeaBtn) openIdeaBtn.onclick = () => this.openIdeaSheet();
     if (closeSheetBtn) closeSheetBtn.onclick = () => this.closeIdeaSheet();
     if (sheetBackdrop) sheetBackdrop.onclick = () => this.closeIdeaSheet();
     if (reorderBtn) reorderBtn.onclick = () => this.handleReorder();
@@ -211,6 +211,7 @@ class AttentionReorderApp {
     if (rerankGoalBtn) rerankGoalBtn.onclick = () => this.handleRerankOnly();
     if (rerankRuleBtn) rerankRuleBtn.onclick = () => this.handleRerankOnly();
     if (ruleDetailsBtn) ruleDetailsBtn.onclick = () => this.toggleRuleDetails();
+    if (changeDetailsBtn) changeDetailsBtn.onclick = () => this.toggleChangeDetails();
 
     if (goalDraft) {
       goalDraft.oninput = (event) => {
@@ -242,6 +243,13 @@ class AttentionReorderApp {
       btn.onclick = (event) => this.selectRulePreset(event.currentTarget.dataset.rulePreset);
     });
 
+    document.querySelectorAll("[data-scroll-target]").forEach((btn) => {
+      btn.onclick = (event) => {
+        const target = document.getElementById(event.currentTarget.dataset.scrollTarget);
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+    });
+
     document.querySelectorAll(".complete-task-btn").forEach((btn) => {
       btn.onpointerdown = (event) => {
         event.stopPropagation();
@@ -252,19 +260,17 @@ class AttentionReorderApp {
       };
     });
 
+    document.querySelectorAll(".pin-task-btn").forEach((btn) => {
+      btn.onclick = (event) => {
+        event.stopPropagation();
+        this.pinTaskToNow(event.currentTarget.dataset.taskId);
+      };
+    });
+
     const completedToggle = document.getElementById("completed-toggle");
     if (completedToggle) {
       completedToggle.onclick = () => this.toggleCompletedTasks();
     }
-  }
-
-  bindDragEvents() {
-    document.querySelectorAll(".task-card[data-draggable='true']").forEach((card) => {
-      card.onpointerdown = null;
-    });
-    document.querySelectorAll(".drag-handle").forEach((handle) => {
-      handle.onpointerdown = (event) => this.handleDragStart(event, handle.closest(".task-card[data-draggable='true']"));
-    });
   }
 
   loadExample(exampleId) {
@@ -275,6 +281,7 @@ class AttentionReorderApp {
     if (input) input.value = example.input;
     this.state.rawInput = example.input;
     this.persistState();
+    this.render();
   }
 
   async handleReorder() {
@@ -371,18 +378,48 @@ class AttentionReorderApp {
     this.render();
   }
 
-  selectRulePreset(rulePreset) {
+  async selectRulePreset(rulePreset) {
+    if (this.state.isProcessing) return;
+
     const nextPreset = this.normalizeRulePreset(rulePreset);
     if (nextPreset === this.state.rulePreset) return;
 
+    const previousPreset = this.state.rulePreset;
     this.state.rulePreset = nextPreset;
-    this.state.isRuleDirty = true;
-    this.persistState();
+    this.state.isRuleDirty = false;
+    this.state.isProcessing = true;
     this.render();
+
+    try {
+      const previousQueue = this.cloneTasks(this.state.currentQueue);
+      const result = await this.requestReorder("", previousQueue);
+
+      this.state.lastQueue = previousQueue;
+      this.state.extractedTasks = [];
+      this.state.currentQueue = result.allTasks;
+      this.state.reorderResult = result;
+      this.state.isProcessing = false;
+      this.state.rulePreset = this.normalizeRulePreset(result.rulePreset || nextPreset);
+      this.state.isRuleDirty = false;
+      this.persistState();
+      this.render();
+      this.showToast(`已按「${this.getRuleProfile(this.state.rulePreset).label}」重新安排`);
+    } catch (error) {
+      this.state.rulePreset = previousPreset;
+      this.state.isProcessing = false;
+      this.showToast("重新安排失败，请重试");
+      this.render();
+    }
   }
 
   toggleRuleDetails() {
     this.state.isRuleDetailsOpen = !this.state.isRuleDetailsOpen;
+    this.persistState();
+    this.render();
+  }
+
+  toggleChangeDetails() {
+    this.state.isChangeDetailsOpen = !this.state.isChangeDetailsOpen;
     this.persistState();
     this.render();
   }
@@ -457,9 +494,12 @@ class AttentionReorderApp {
 
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
-      document.getElementById("input-text").value = transcript;
+      const input = document.getElementById("input-text");
+      if (input) input.value = transcript;
       this.state.rawInput = transcript;
+      this.persistState();
       this.showToast("语音输入完成");
+      this.render();
     };
 
     recognition.onerror = () => {
@@ -774,7 +814,7 @@ class AttentionReorderApp {
       if (task.manualStatus === "manual_order") {
         return {
           ...task,
-          reason: "你手动调整了它的位置，系统会在后续重排中优先保留这个相对顺序。"
+          reason: "你手动把它置为现在要做，系统会在后续重排中优先保留这个选择。"
         };
       }
 
@@ -859,143 +899,20 @@ class AttentionReorderApp {
       }));
   }
 
-  handleDragStart(event, card) {
-    if (event.button !== 0 && event.pointerType === "mouse") return;
-    if (!card) return;
-
-    const taskId = card.dataset.taskId;
-    if (!taskId) return;
-
-    this.pressStartPos = { x: event.clientX, y: event.clientY };
-    
-    const startDrag = () => {
-      this.longPressTimer = null;
-      this.dragState = {
-        taskId,
-        card,
-        pointerId: event.pointerId
-      };
-
-      card.setPointerCapture(event.pointerId);
-      card.classList.add("dragging");
-      document.body.classList.add("is-dragging-task");
-      this.showToast("开始拖拽");
-    };
-
-    const LONG_PRESS_DURATION = event.pointerType === "touch" ? 300 : 150;
-    
-    this.longPressTimer = setTimeout(() => {
-      startDrag();
-    }, LONG_PRESS_DURATION);
-
-    const cancelLongPress = () => {
-      if (this.longPressTimer) {
-        clearTimeout(this.longPressTimer);
-        this.longPressTimer = null;
-      }
-      card.removeEventListener("pointermove", checkMove);
-      card.removeEventListener("pointerup", cancelLongPress);
-      card.removeEventListener("pointercancel", cancelLongPress);
-    };
-
-    const checkMove = (moveEvent) => {
-      const deltaX = Math.abs(moveEvent.clientX - this.pressStartPos.x);
-      const deltaY = Math.abs(moveEvent.clientY - this.pressStartPos.y);
-      if (deltaX > 10 || deltaY > 10) {
-        cancelLongPress();
-      }
-    };
-
-    card.addEventListener("pointermove", checkMove);
-    card.addEventListener("pointerup", cancelLongPress);
-    card.addEventListener("pointercancel", cancelLongPress);
-  }
-
-  handleDragMove(event) {
-    if (!this.dragState) return;
-    event.preventDefault();
-
-    this.clearDragTargets();
-    const target = this.getDropTargetAt(event.clientX, event.clientY);
-
-    if (target.zone) {
-      target.zone.classList.add("drag-over-zone");
-    } else if (target.card && target.card.dataset.taskId !== this.dragState.taskId) {
-      target.card.classList.add("drag-over");
-    }
-  }
-
-  handleDragEnd(event) {
-    if (!this.dragState) return;
-
-    const target = this.getDropTargetAt(event.clientX, event.clientY);
-    const draggedId = this.dragState.taskId;
-    const draggedCard = this.dragState.card;
-
-    this.clearDragTargets();
-    draggedCard.classList.remove("dragging");
-    document.body.classList.remove("is-dragging-task");
-
-    try {
-      draggedCard.releasePointerCapture(this.dragState.pointerId);
-    } catch (error) {
-      // Pointer capture may already be released by the browser.
-    }
-
-    if (this.longPressTimer) {
-      clearTimeout(this.longPressTimer);
-      this.longPressTimer = null;
-    }
-
-    this.dragState = null;
-
-    if (target.zone) {
-      this.moveTaskOutOfToday(draggedId);
-      return;
-    }
-
-    if (target.card && target.card.dataset.taskId !== draggedId) {
-      const rect = target.card.getBoundingClientRect();
-      const placeAfter = event.clientY > rect.top + rect.height / 2;
-      this.reorderTaskByDrag(draggedId, target.card.dataset.taskId, placeAfter);
-    }
-  }
-
-  getDropTargetAt(x, y) {
-    if (!this.dragState) return {};
-
-    this.dragState.card.style.pointerEvents = "none";
-    const element = document.elementFromPoint(x, y);
-    this.dragState.card.style.pointerEvents = "";
-
-    return {
-      card: element ? element.closest(".task-card[data-draggable='true']") : null,
-      zone: element ? element.closest(".manual-drop-zone") : null
-    };
-  }
-
-  clearDragTargets() {
-    document.querySelectorAll(".drag-over").forEach((item) => item.classList.remove("drag-over"));
-    document.querySelectorAll(".drag-over-zone").forEach((item) => item.classList.remove("drag-over-zone"));
-  }
-
-  reorderTaskByDrag(draggedId, targetId, placeAfter) {
+  pinTaskToNow(taskId) {
     const allTasks = this.cloneTasks(this.state.currentQueue);
     const activeTasks = this.getTodayTasks(allTasks);
     const outTasks = this.getOutOfTodayTasks(allTasks);
 
-    const draggedIndex = activeTasks.findIndex((task) => task.id === draggedId);
-    const targetIndex = activeTasks.findIndex((task) => task.id === targetId);
-    if (draggedIndex === -1 || targetIndex === -1) return;
+    const targetIndex = activeTasks.findIndex((task) => task.id === taskId);
+    if (targetIndex <= 0) return;
 
-    const [draggedTask] = activeTasks.splice(draggedIndex, 1);
-    let insertIndex = activeTasks.findIndex((task) => task.id === targetId);
-    if (placeAfter) insertIndex += 1;
-    activeTasks.splice(insertIndex, 0, {
-      ...draggedTask,
+    const [targetTask] = activeTasks.splice(targetIndex, 1);
+    activeTasks.unshift({
+      ...targetTask,
       manualStatus: "manual_order",
       change: "manual_order",
-      reason: "你手动调整了它的位置，系统会在后续重排中优先保留这个相对顺序。"
+      reason: "你手动把它置为现在要做，系统会在后续重排中优先保留这个选择。"
     });
 
     const rerankedActive = activeTasks.map((task, index) => ({
@@ -1003,16 +920,16 @@ class AttentionReorderApp {
       previousRank: task.currentRank,
       currentRank: index + 1,
       recommendation: this.getManualRecommendation(task, index),
-      change: task.id === draggedId ? "manual_order" : task.change
+      change: task.id === taskId ? "manual_order" : this.getChangeState(task, index + 1)
     }));
 
     this.state.lastQueue = this.cloneTasks(this.state.currentQueue);
     this.state.currentQueue = [...rerankedActive, ...outTasks];
     this.state.manualOrderConstraints = this.deriveManualOrderConstraints(rerankedActive);
-    this.state.reorderResult = this.createResultFromCurrentQueue("已将你的手动排序作为今日偏好保留。");
-    this.state.lastManualMessage = "已按你的调整保留顺序";
+    this.state.reorderResult = this.createResultFromCurrentQueue("已将该任务置为现在要做。");
+    this.state.lastManualMessage = "已置为现在要做";
     this.persistState();
-    this.showToast("已按你的调整保留顺序");
+    this.showToast("已置为现在要做");
     this.render();
   }
 
@@ -1190,7 +1107,7 @@ class AttentionReorderApp {
       promoted: "提前处理",
       delayed: "被挤到稍后",
       removed: "移出今天",
-      manual_order: "用户调整",
+      manual_order: "置为现在做",
       manual_out: "用户移出"
     };
     return labels[eventType] || "保持不变";
@@ -1305,6 +1222,7 @@ class AttentionReorderApp {
   render() {
     document.body.classList.toggle("modal-open", this.state.isIdeaSheetOpen);
     this.renderHeader();
+    this.renderFocusScreen();
     this.renderTodayQueue();
     this.renderCapturePanel();
     this.renderReasonPanel();
@@ -1313,8 +1231,138 @@ class AttentionReorderApp {
 
   renderHeader() {
     const header = document.getElementById("header");
+    const currentPreset = this.normalizeRulePreset(this.state.rulePreset);
+    const presets = [
+      ["balanced", "平衡"],
+      ["deadline_first", "截止"],
+      ["goal_first", "目标"],
+      ["low_effort_first", "轻松"]
+    ];
+
     header.innerHTML = `
-      <p>新想法插入时，帮你重新分配今天的注意力</p>
+      <button class="brand" type="button" aria-label="注意力重排助手">
+        <span class="brand-mark" aria-hidden="true">序</span>
+        <span class="brand-copy">
+          <strong>注意力重排</strong>
+          <small>新想法出现时，重新安排今天</small>
+        </span>
+      </button>
+      <div class="mode-wrap">
+        <span class="mode-label">重排方式</span>
+        <div class="mode-switcher" role="radiogroup" aria-label="选择重排方式">
+          ${presets.map(([preset, label]) => `
+            <button
+              class="rule-preset-btn mode-button ${preset === currentPreset ? "active" : ""}"
+              data-rule-preset="${preset}"
+              type="button"
+              role="radio"
+              aria-checked="${preset === currentPreset ? "true" : "false"}"
+              ${this.state.isProcessing ? "disabled" : ""}
+            >${this.escapeHtml(label)}</button>
+          `).join("")}
+        </div>
+        ${this.state.isRuleDirty ? `<button id="rerank-rule-btn" class="btn-primary compact top-rerank" ${this.state.isProcessing ? "disabled" : ""}>重新安排</button>` : ""}
+      </div>
+    `;
+  }
+
+  renderFocusScreen() {
+    const container = document.getElementById("focus-screen");
+    const queue = this.getTodayTasks(this.state.currentQueue);
+    const currentTask = queue[0] || null;
+    const profile = this.getRuleProfile();
+    const completedCount = (this.state.completedTasks || []).length;
+
+    if (!currentTask) {
+      container.innerHTML = `
+        <span class="screen-number" aria-hidden="true">01</span>
+        <section class="focus-hero empty-focus">
+          <p class="eyebrow"><span class="live-dot"></span> 现在要做什么</p>
+          <h1 id="focus-title">现在没有必须立刻处理的事</h1>
+          <p class="hero-reason">新增一个想法后，我会重新判断今天应该先发生什么。</p>
+        </section>
+        ${this.renderInlineIdeaComposer()}
+        <button class="scroll-cue" type="button" data-scroll-target="today-queue">下滑看其他事项</button>
+      `;
+      return;
+    }
+
+    const scoreWidth = Math.max(8, Math.min(100, ((currentTask.score || 0) / 5) * 100));
+    const total = this.getTodayTasks(this.state.currentQueue).length + this.getOutOfTodayTasks(this.state.currentQueue).length;
+
+    container.innerHTML = `
+      <span class="screen-number" aria-hidden="true">01</span>
+      <section class="focus-hero" aria-labelledby="focus-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="live-dot"></span> 现在要做什么</p>
+          <h1 id="focus-title">${this.escapeHtml(currentTask.title)}</h1>
+          <p class="hero-reason">${this.escapeHtml(currentTask.reason || "根据当前排序，先处理这件事。")}</p>
+          <div class="hero-meta">
+            <span>${this.escapeHtml(profile.label)}</span>
+            ${currentTask.deadline ? `<span>截止 ${this.escapeHtml(currentTask.deadline)}</span>` : ""}
+            <span>${completedCount}/${total} 已完成</span>
+          </div>
+          <div class="hero-score" aria-label="优先级分数">
+            <i style="width: ${scoreWidth}%"></i>
+          </div>
+        </div>
+        <div class="focus-orbit" aria-hidden="true">
+          <div class="orbit-ring orbit-ring-one"></div>
+          <div class="orbit-ring orbit-ring-two"></div>
+          <span>01</span>
+        </div>
+      </section>
+      ${this.renderInlineIdeaComposer()}
+      <button class="scroll-cue" type="button" data-scroll-target="today-queue">下滑 · 还要做什么</button>
+    `;
+  }
+
+  renderInlineIdeaComposer() {
+    const inputValue = this.escapeHtml(this.state.rawInput);
+    const isSubmitDisabled = this.state.isProcessing || !this.state.rawInput.trim();
+    const voiceFallbackAttr = this.state.speechSupported ? "" : `aria-describedby="voice-fallback-hint"`;
+
+    return `
+      <section class="idea-composer-card" aria-labelledby="idea-composer-title">
+        <p class="composer-kicker">有新想法？</p>
+        <h2 id="idea-composer-title">说出来，今天会自动重新安排。</h2>
+        <div class="composer-input-row">
+          <label class="sr-only" for="input-text">输入新的任务或想法</label>
+          <div class="composer-input-shell">
+            <input
+              id="input-text"
+              class="composer-input"
+              type="text"
+              placeholder="输入或说出一件事"
+              autocomplete="off"
+              value="${inputValue}"
+              ${this.state.isProcessing ? "disabled" : ""}
+            >
+            <button
+              id="voice-btn"
+              class="composer-mic-button ${this.state.speechSupported ? "" : "unsupported"}"
+              type="button"
+              aria-label="语音输入"
+              ${this.state.isProcessing ? "disabled" : ""}
+              ${voiceFallbackAttr}
+            >
+              <span class="mic-icon" aria-hidden="true"></span>
+            </button>
+          </div>
+          <button
+            id="reorder-btn"
+            class="composer-submit"
+            type="button"
+            ${isSubmitDisabled ? "disabled" : ""}
+          >${this.state.isProcessing ? "处理中..." : "加入并重排"}</button>
+        </div>
+        ${this.state.speechSupported ? "" : `<p id="voice-fallback-hint" class="voice-fallback-hint">当前浏览器不支持网页语音识别，可使用系统键盘语音输入。</p>`}
+        <div class="composer-examples" aria-label="快速体验示例">
+          ${DEMO_DATA.examples.map((example) => `
+            <button class="example-btn composer-example-btn" type="button" data-example-id="${example.id}" ${this.state.isProcessing ? "disabled" : ""}>${this.escapeHtml(example.name)}</button>
+          `).join("")}
+        </div>
+      </section>
     `;
   }
 
@@ -1323,60 +1371,46 @@ class AttentionReorderApp {
     const queue = this.getTodayTasks(tasks);
     const outOfToday = this.getOutOfTodayTasks(tasks);
     const container = document.getElementById("today-queue");
+    const focusTask = queue[0] || null;
+    const remainingQueue = focusTask ? queue.filter((task) => task.id !== focusTask.id) : queue;
 
-    const nowTasks = queue.filter((task) => task.recommendation === "do_now");
-    const laterTasks = queue.filter((task) => task.recommendation !== "do_now");
+    const nowTasks = remainingQueue.filter((task) => task.recommendation === "do_now");
+    const laterTasks = remainingQueue.filter((task) => task.recommendation !== "do_now");
     const total = queue.length + outOfToday.length;
 
     container.innerHTML = `
+      <span class="screen-number dark" aria-hidden="true">02</span>
       <div class="queue-header">
-        <h2>怎么安排今天</h2>
+        <div>
+          <p class="section-kicker">今日安排</p>
+          <h2 id="queue-title">还要做什么</h2>
+        </div>
         <span class="queue-count">共 ${total} 项</span>
       </div>
       <p class="positioning-line">重排今日注意力，而不是追加待办。</p>
       ${this.state.lastManualMessage ? `<div class="manual-status">${this.escapeHtml(this.state.lastManualMessage)}</div>` : ""}
-      ${this.renderTaskGroup("现在做", nowTasks, "group-now", true)}
+      ${nowTasks.length > 0 ? this.renderTaskGroup("接下来", nowTasks, "group-now", true) : ""}
       ${laterTasks.length > 0 ? this.renderTaskGroup("今天晚点做", laterTasks, "group-later", true) : ""}
-      ${this.renderTaskGroup("不放进今天", outOfToday, "group-out", false, true)}
+      ${this.renderTaskGroup("不放进今天", outOfToday, "group-out", false)}
     `;
-
-    this.bindDragEvents();
-    document.onpointermove = (event) => this.handleDragMove(event);
-    document.onpointerup = (event) => this.handleDragEnd(event);
-    document.onpointercancel = (event) => this.handleDragEnd(event);
   }
 
-  renderTaskGroup(title, tasks, className, draggable = false, dropZone = false) {
+  renderTaskGroup(title, tasks, className, canPinToNow = false) {
     const emptyText = className === "group-now" ? "现在没有必须立刻处理的事" : "暂无任务";
     return `
-      <div class="task-group ${className} ${dropZone ? "manual-drop-zone" : ""}">
+      <div class="task-group ${className}">
         <div class="task-group-header">
           <h3>${title}</h3>
           <span>${tasks.length} 项</span>
         </div>
         <div class="task-list">
-          ${tasks.length > 0 ? tasks.map((task) => this.renderTaskCard(task, className === "group-later", draggable)).join("") : `<div class="empty-group">${emptyText}</div>`}
+          ${tasks.length > 0 ? tasks.map((task) => this.renderTaskCard(task, className === "group-later", canPinToNow)).join("") : `<div class="empty-group">${emptyText}</div>`}
         </div>
       </div>
     `;
   }
 
-  renderTaskCard(task, isLater = false, draggable = false) {
-    const changeLabels = {
-      new: { text: "新增", class: "label-new" },
-      up: { text: "上升", class: "label-up" },
-      down: { text: "下降", class: "label-down" },
-      same: { text: "保持", class: "label-same" },
-      out: { text: "移出", class: "label-out" },
-      manual_order: { text: "用户调整", class: "label-manual" }
-    };
-
-    const manualLabels = {
-      manual_order: { text: "用户调整", class: "label-manual" },
-      manual_out: { text: "用户移出", class: "label-out" },
-      manual_preserved: { text: "保留调整", class: "label-manual" }
-    };
-
+  renderTaskCard(task, isLater = false, canPinToNow = false) {
     const recLabels = {
       do_now: { text: "立即做", class: "rec-now" },
       do_today: { text: "今天做", class: "rec-today" },
@@ -1385,35 +1419,39 @@ class AttentionReorderApp {
       remove_today: { text: "不放进今天", class: "rec-remove" }
     };
 
-    const change = manualLabels[task.manualStatus] || changeLabels[task.change] || null;
     const rec = recLabels[task.recommendation] || recLabels.do_today;
     const rank = task.currentRank || "-";
     const scoreWidth = Math.max(8, Math.min(100, ((task.score || 0) / 5) * 100));
     const canComplete = !this.isOutOfToday(task);
 
-    const dragIcon = `<svg viewBox="64 64 896 896" focusable="false" fill="currentColor" class="drag-icon"><path d="M912 192H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 284H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 284H328c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h584c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM104 228a56 56 0 10112 0 56 56 0 10-112 0zm0 284a56 56 0 10112 0 56 56 0 10-112 0zm0 284a56 56 0 10112 0 56 56 0 10-112 0z" /></svg>`;
-
-
     return `
       <div
         class="task-card ${this.isOutOfToday(task) ? "task-out" : ""} ${isLater ? "task-later" : ""} ${task.manualStatus ? "task-manual" : ""}"
         data-task-id="${this.escapeHtml(task.id)}"
-        data-draggable="${draggable ? "true" : "false"}"
       >
-        ${draggable ? `<span class="drag-handle">${dragIcon}</span>` : ""}
-        ${canComplete ? `
-          <button
-            class="complete-task-btn"
-            data-task-id="${this.escapeHtml(task.id)}"
-            aria-label="标记完成：${this.escapeHtml(task.title)}"
-            title="标记完成"
-          ></button>
-        ` : ""}
+        <div class="task-card-actions">
+          ${canComplete ? `
+            <button
+              class="complete-task-btn"
+              data-task-id="${this.escapeHtml(task.id)}"
+              aria-label="标记完成：${this.escapeHtml(task.title)}"
+              title="标记完成"
+            ></button>
+          ` : ""}
+          ${canPinToNow ? `
+            <button
+              class="pin-task-btn"
+              type="button"
+              data-task-id="${this.escapeHtml(task.id)}"
+              aria-label="置为现在做：${this.escapeHtml(task.title)}"
+              title="置为现在做"
+            >↑ 现在</button>
+          ` : ""}
+        </div>
         <div class="task-rank">${rank}</div>
         <div class="task-content">
           <div class="task-header">
             <h3>${this.escapeHtml(task.title)}</h3>
-            ${change && change.text !== "保持" ? `<span class="label ${change.class}">${change.text}</span>` : ""}
           </div>
           <div class="task-meta">
             ${task.deadline ? `<span class="deadline">截止 ${this.escapeHtml(task.deadline)}</span>` : ""}
@@ -1430,43 +1468,8 @@ class AttentionReorderApp {
 
   renderCapturePanel() {
     const panel = document.getElementById("capture-panel");
-    const goalText = this.state.todayGoal || "完成 AI 创意大赛 Demo 初赛提交";
 
     panel.innerHTML = `
-      <div class="goal-bar">
-        ${this.state.isEditingGoal ? `
-          <div class="goal-edit">
-            <label class="field-label" for="goal-draft">今日目标</label>
-            <input
-              id="goal-draft"
-              class="goal-input"
-              value="${this.escapeHtml(this.state.goalDraft || goalText)}"
-              placeholder="例如：完成 AI 创意大赛 Demo 初赛提交"
-            >
-            <div class="goal-edit-actions">
-              <button id="cancel-goal-btn" class="btn-secondary compact">取消</button>
-              <button id="save-goal-btn" class="btn-primary compact">保存目标</button>
-            </div>
-          </div>
-        ` : `
-          <div class="goal-display">
-            <div>
-              <span class="field-label">今日目标</span>
-              <p>${this.escapeHtml(goalText)}</p>
-              ${this.state.isGoalDirty ? `<span class="goal-dirty">目标已修改</span>` : ""}
-            </div>
-            <div class="goal-actions">
-              ${this.state.isGoalDirty ? `<button id="rerank-goal-btn" class="btn-primary compact" ${this.state.isProcessing ? "disabled" : ""}>重新安排</button>` : ""}
-              <button id="edit-goal-btn" class="btn-secondary compact">编辑</button>
-            </div>
-          </div>
-        `}
-      </div>
-
-      <div class="bottom-action-bar ${this.state.isIdeaSheetOpen ? "hidden" : ""}">
-        <button id="open-idea-btn" class="btn-primary add-idea-btn">+ 新增想法</button>
-      </div>
-
       ${this.renderIdeaSheet()}
     `;
   }
@@ -1532,13 +1535,20 @@ class AttentionReorderApp {
 
     if (!this.state.reorderResult) {
       panel.innerHTML = `
-        <div class="reason-empty">
-          <h3>AI 取舍解释</h3>
-          <p>点击底部“新增想法”，查看 AI 如何把任务分到“现在做 / 今天晚点做 / 不放进今天”。</p>
+        <span class="screen-number dark" aria-hidden="true">03</span>
+        <div class="summary-shell">
+          <div class="summary-heading">
+            <p class="section-kicker">复盘</p>
+            <h2 id="summary-title">重排摘要</h2>
+          </div>
+          <div class="reason-empty">
+            <h3>还没有新的重排结果</h3>
+            <p>点击首屏底部“新增想法并重排”后，这里会展示本次取舍摘要。</p>
+          </div>
+          ${this.renderRulePanel()}
+          ${this.renderCompletedTasks()}
+          ${this.renderResetFooter()}
         </div>
-        ${this.renderRulePanel()}
-        ${this.renderCompletedTasks()}
-        ${this.renderResetFooter()}
       `;
       return;
     }
@@ -1554,73 +1564,70 @@ class AttentionReorderApp {
     const source = sourceLabels[result.source];
 
     panel.innerHTML = `
-      <h3>本次重排摘要</h3>
-      <div class="summary-card">
-        <p>${this.escapeHtml(result.summary)}</p>
-        ${source ? `<span class="source-badge ${source.class}">${source.text}</span>` : ""}
-      </div>
-      ${warnings.length > 0 ? `
-        <div class="warning-list">
-          ${warnings.map((warning) => `<p>${this.escapeHtml(warning)}</p>`).join("")}
+      <span class="screen-number dark" aria-hidden="true">03</span>
+      <div class="summary-shell">
+        <div class="summary-heading">
+          <p class="section-kicker">复盘</p>
+          <h2 id="summary-title">重排摘要</h2>
         </div>
-      ` : ""}
-
-      <h3>调整详情</h3>
-      <div class="change-events-list">
-        ${changeEvents.length > 0 ? changeEvents.map((event) => `
-          <div class="change-event-card">
-            <div class="change-event-header">
-              <span class="change-event-label ${event.className}">${this.escapeHtml(event.label)}</span>
-              <span class="change-event-score">${event.score.toFixed(1)}分</span>
-            </div>
-            <h4>${this.escapeHtml(event.title)}</h4>
-            <div class="change-path">
-              <span>${this.escapeHtml(event.from)}</span>
-              <span class="path-arrow">-&gt;</span>
-              <span>${this.escapeHtml(event.to)}</span>
-            </div>
-            <p>${this.escapeHtml(event.reason)}</p>
+        <div class="summary-card">
+          <p>${this.escapeHtml(result.summary)}</p>
+          ${source ? `<span class="source-badge ${source.class}">${source.text}</span>` : ""}
+        </div>
+        ${warnings.length > 0 ? `
+          <div class="warning-list">
+            ${warnings.map((warning) => `<p>${this.escapeHtml(warning)}</p>`).join("")}
           </div>
-        `).join("") : `
-          <div class="change-empty">本次没有明显调整，当前安排保持稳定。</div>
-        `}
+        ` : ""}
+
+        <button
+          id="change-details-toggle"
+          class="details-toggle"
+          type="button"
+          aria-expanded="${this.state.isChangeDetailsOpen ? "true" : "false"}"
+        >
+          <span>调整详情 · ${changeEvents.length} 项</span>
+          <span>${this.state.isChangeDetailsOpen ? "收起" : "展开"}</span>
+        </button>
+        ${this.state.isChangeDetailsOpen ? `
+          <div class="change-events-list">
+            ${changeEvents.length > 0 ? changeEvents.map((event) => `
+              <div class="change-event-card">
+                <div class="change-event-header">
+                  <span class="change-event-label ${event.className}">${this.escapeHtml(event.label)}</span>
+                  <span class="change-event-score">${event.score.toFixed(1)}分</span>
+                </div>
+                <h4>${this.escapeHtml(event.title)}</h4>
+                <div class="change-path">
+                  <span>${this.escapeHtml(event.from)}</span>
+                  <span class="path-arrow">-&gt;</span>
+                  <span>${this.escapeHtml(event.to)}</span>
+                </div>
+                <p>${this.escapeHtml(event.reason)}</p>
+              </div>
+            `).join("") : `
+              <div class="change-empty">本次没有明显调整，当前安排保持稳定。</div>
+            `}
+          </div>
+        ` : ""}
+        ${this.renderRulePanel()}
+        ${this.renderCompletedTasks()}
+        ${this.renderResetFooter()}
       </div>
-      ${this.renderRulePanel()}
-      ${this.renderCompletedTasks()}
-      ${this.renderResetFooter()}
     `;
   }
 
   renderRulePanel() {
     const currentPreset = this.normalizeRulePreset(this.state.rulePreset);
     const profile = this.getRuleProfile(currentPreset);
-    const presets = [
-      ["balanced", RULE_PROFILES.balanced],
-      ["deadline_first", RULE_PROFILES.deadline_first],
-      ["goal_first", RULE_PROFILES.goal_first],
-      ["low_effort_first", RULE_PROFILES.low_effort_first]
-    ];
 
     return `
       <div class="rule-panel">
         <div class="rule-panel-header">
           <div>
-            <h3>当前排序偏好</h3>
+            <h3>当前排序偏好 · ${this.escapeHtml(profile.label)}</h3>
             <p>${this.escapeHtml(profile.description)}</p>
           </div>
-          ${this.state.isRuleDirty ? `<button id="rerank-rule-btn" class="btn-primary compact" ${this.state.isProcessing ? "disabled" : ""}>重新安排</button>` : ""}
-        </div>
-        <div class="rule-preset-list" role="list" aria-label="排序偏好">
-          ${presets.map(([preset, item]) => `
-            <button
-              class="rule-preset-btn ${preset === currentPreset ? "active" : ""}"
-              data-rule-preset="${preset}"
-              type="button"
-            >
-              <span>${this.escapeHtml(item.label)}</span>
-              <small>${this.escapeHtml(item.description)}</small>
-            </button>
-          `).join("")}
         </div>
         ${this.state.isRuleDirty ? `<p class="rule-dirty">偏好已修改，下次新增或点击重新安排后生效。</p>` : ""}
         <button
