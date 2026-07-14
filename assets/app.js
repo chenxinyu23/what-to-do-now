@@ -40,6 +40,7 @@ class AttentionReorderApp {
       lastQueue: [],
       extractedTasks: [],
       reorderResult: null,
+      presetResults: null,
       manualOrderConstraints: [],
       manualOutIds: [],
       rulePreset: "balanced",
@@ -117,6 +118,7 @@ class AttentionReorderApp {
         lastQueue: parsed.lastQueue || [],
         extractedTasks: parsed.extractedTasks || [],
         reorderResult: parsed.reorderResult || null,
+        presetResults: parsed.presetResults && typeof parsed.presetResults === "object" ? parsed.presetResults : null,
         manualOrderConstraints: parsed.manualOrderConstraints || [],
         manualOutIds: parsed.manualOutIds || [],
         rulePreset: this.normalizeRulePreset(parsed.rulePreset),
@@ -143,6 +145,7 @@ class AttentionReorderApp {
         lastQueue: this.state.lastQueue,
         extractedTasks: this.state.extractedTasks,
         reorderResult: this.state.reorderResult,
+        presetResults: this.state.presetResults,
         manualOrderConstraints: this.state.manualOrderConstraints,
         manualOutIds: this.state.manualOutIds,
         rulePreset: this.state.rulePreset,
@@ -195,6 +198,10 @@ class AttentionReorderApp {
       inputText.oninput = (event) => {
         this.state.rawInput = event.target.value;
         this.persistState();
+        const reorderBtn = document.getElementById("reorder-btn");
+        if (reorderBtn) {
+          reorderBtn.disabled = this.state.isProcessing || !this.state.rawInput.trim();
+        }
       };
       inputText.onkeypress = (event) => {
         if (event.key === "Enter" && !event.shiftKey) {
@@ -273,8 +280,8 @@ class AttentionReorderApp {
 
       this.state.lastQueue = previousQueue;
       this.state.extractedTasks = result.extractedTasks;
-      this.state.currentQueue = result.allTasks;
-      this.state.reorderResult = result;
+      this.state.presetResults = this.normalizePresetResults(result.presetResults);
+      this.applyPresetResult(result);
       this.state.isProcessing = false;
       this.state.rulePreset = this.normalizeRulePreset(result.rulePreset || this.state.rulePreset);
       this.state.isRuleDirty = false;
@@ -282,6 +289,7 @@ class AttentionReorderApp {
       this.state.isIdeaSheetOpen = false;
       this.persistState();
       this.render();
+      this.showToast("已将想法加入并重排今日队列");
     } catch (error) {
       this.state.isProcessing = false;
       this.showToast("重排失败，请重试");
@@ -301,8 +309,8 @@ class AttentionReorderApp {
 
       this.state.lastQueue = previousQueue;
       this.state.extractedTasks = [];
-      this.state.currentQueue = result.allTasks;
-      this.state.reorderResult = result;
+      this.state.presetResults = this.normalizePresetResults(result.presetResults);
+      this.applyPresetResult(result);
       this.state.isProcessing = false;
       this.state.isGoalDirty = false;
       this.state.rulePreset = this.normalizeRulePreset(result.rulePreset || this.state.rulePreset);
@@ -346,6 +354,7 @@ class AttentionReorderApp {
     this.state.goalDraft = nextGoal;
     this.state.isEditingGoal = false;
     this.state.isGoalDirty = true;
+    this.state.presetResults = null;
     this.persistState();
     this.render();
   }
@@ -356,32 +365,21 @@ class AttentionReorderApp {
     const nextPreset = this.normalizeRulePreset(rulePreset);
     if (nextPreset === this.state.rulePreset) return;
 
-    const previousPreset = this.state.rulePreset;
     this.state.rulePreset = nextPreset;
     this.state.isRuleDirty = false;
-    this.state.isProcessing = true;
-    this.render();
-
-    try {
-      const previousQueue = this.cloneTasks(this.state.currentQueue);
-      const result = await this.requestReorder("", previousQueue);
-
-      this.state.lastQueue = previousQueue;
-      this.state.extractedTasks = [];
-      this.state.currentQueue = result.allTasks;
-      this.state.reorderResult = result;
-      this.state.isProcessing = false;
-      this.state.rulePreset = this.normalizeRulePreset(result.rulePreset || nextPreset);
-      this.state.isRuleDirty = false;
-      this.persistState();
-      this.render();
-      this.showToast(`已按「${this.getRuleProfile(this.state.rulePreset).label}」重新安排`);
-    } catch (error) {
-      this.state.rulePreset = previousPreset;
-      this.state.isProcessing = false;
-      this.showToast("重新安排失败，请重试");
-      this.render();
+    let result = this.getPresetResult(nextPreset);
+    if (!result) {
+      this.state.presetResults = {
+        ...(this.state.presetResults || {}),
+        ...this.buildLocalPresetResults("", this.cloneTasks(this.state.currentQueue))
+      };
+      result = this.getPresetResult(nextPreset);
     }
+
+    this.applyPresetResult(result);
+    this.persistState();
+    this.render();
+    this.showToast(`已切换到「${this.getRuleProfile(this.state.rulePreset).label}」`);
   }
 
   toggleRuleDetails() {
@@ -410,20 +408,61 @@ class AttentionReorderApp {
       const result = await response.json();
       if (!Array.isArray(result.allTasks)) throw new Error("API result missing allTasks");
       if (result.source === "fallback") {
-        this.showToast("已用备用规则完成重排");
+        this.showToast("已按智能规则完成重排");
       }
       return result;
     } catch (error) {
-      const fallbackResult = this.processReorder(inputText, previousQueue);
+      const presetResults = this.buildLocalPresetResults(inputText, previousQueue);
+      const fallbackResult = presetResults[this.normalizeRulePreset(this.state.rulePreset)];
       return {
         ...fallbackResult,
         source: "fallback",
         rulePreset: this.state.rulePreset,
         ruleProfile: this.getRuleProfile(),
-        summary: `当前网络或模型服务暂不可用，已用备用规则完成重排。${fallbackResult.summary}`,
-        warnings: ["当前网络或模型服务暂不可用，已用备用规则完成重排"]
+        presetResults,
+        summary: `已按智能规则完成重排。${fallbackResult.summary}`,
+        warnings: ["已按智能规则完成重排"]
       };
     }
+  }
+
+  normalizePresetResults(presetResults) {
+    if (!presetResults || typeof presetResults !== "object") return null;
+
+    return Object.fromEntries(
+      Object.keys(RULE_PROFILES)
+        .map((preset) => {
+          const result = presetResults[preset];
+          return result && Array.isArray(result.allTasks) ? [preset, result] : null;
+        })
+        .filter(Boolean)
+    );
+  }
+
+  getPresetResult(rulePreset) {
+    const preset = this.normalizeRulePreset(rulePreset);
+    return this.state.presetResults?.[preset] || null;
+  }
+
+  applyPresetResult(result) {
+    if (!result || !Array.isArray(result.allTasks)) return;
+
+    this.state.currentQueue = result.allTasks;
+    this.state.reorderResult = result;
+    this.state.extractedTasks = Array.isArray(result.extractedTasks) ? result.extractedTasks : this.state.extractedTasks;
+    this.state.rulePreset = this.normalizeRulePreset(result.rulePreset || this.state.rulePreset);
+  }
+
+  buildLocalPresetResults(inputText, previousQueue) {
+    const extractedTasks = this.taskExtractor(inputText);
+    const normalizedTasks = this.normalizeTaskDrafts(extractedTasks, inputText);
+
+    return Object.fromEntries(
+      Object.keys(RULE_PROFILES).map((preset) => [
+        preset,
+        this.processPreparedReorder(inputText, this.cloneTasks(previousQueue), normalizedTasks, preset)
+      ])
+    );
   }
 
   buildReorderRequest(inputText) {
@@ -481,11 +520,15 @@ class AttentionReorderApp {
     recognition.start();
   }
 
-  processReorder(inputText, previousQueue) {
+  processReorder(inputText, previousQueue, rulePreset = this.state.rulePreset) {
     const extractedTasks = this.taskExtractor(inputText);
     const normalizedTasks = this.normalizeTaskDrafts(extractedTasks, inputText);
+    return this.processPreparedReorder(inputText, previousQueue, normalizedTasks, rulePreset);
+  }
+
+  processPreparedReorder(inputText, previousQueue, normalizedTasks, rulePreset = this.state.rulePreset) {
     const mergedTasks = this.mergeWithCurrentQueue(previousQueue, normalizedTasks);
-    const scoredTasks = this.scoringEngine(mergedTasks);
+    const scoredTasks = this.scoringEngine(mergedTasks, rulePreset);
     const manuallyFilteredTasks = this.applyManualOutRules(scoredTasks);
     const reorderPayload = this.reorderEngine(manuallyFilteredTasks);
     const explainedTasks = this.explanationGenerator(
@@ -500,6 +543,8 @@ class AttentionReorderApp {
 
     return {
       source: "fallback",
+      rulePreset: this.normalizeRulePreset(rulePreset),
+      ruleProfile: this.getRuleProfile(rulePreset),
       summary: this.generateSummary(
         explainedTasks,
         reorderPayload.preservedManualConstraints,
@@ -651,8 +696,8 @@ class AttentionReorderApp {
     return merged;
   }
 
-  scoringEngine(tasks) {
-    const ruleProfile = this.getRuleProfile();
+  scoringEngine(tasks, rulePreset = this.state.rulePreset) {
+    const ruleProfile = this.getRuleProfile(rulePreset);
     return tasks.map((task) => {
       const score =
         task.urgency * ruleProfile.weights.urgency +
@@ -899,6 +944,7 @@ class AttentionReorderApp {
     this.state.currentQueue = [...rerankedActive, ...outTasks];
     this.state.manualOrderConstraints = this.deriveManualOrderConstraints(rerankedActive);
     this.state.reorderResult = this.createResultFromCurrentQueue("已将该任务置为现在要做。");
+    this.state.presetResults = null;
     this.persistState();
     this.showToast("已置为现在要做");
     this.render();
@@ -934,6 +980,7 @@ class AttentionReorderApp {
     this.state.manualOutIds = Array.from(new Set([...this.state.manualOutIds, taskId]));
     this.state.manualOrderConstraints = this.deriveManualOrderConstraints(activeTasks);
     this.state.reorderResult = this.createResultFromCurrentQueue("已将该任务移出今天，后续普通重排不会自动放回。");
+    this.state.presetResults = null;
     this.persistState();
     this.showToast("已移出今天");
     this.render();
@@ -964,6 +1011,7 @@ class AttentionReorderApp {
     this.state.manualOrderConstraints = this.state.manualOrderConstraints.filter(
       (constraint) => constraint.beforeTaskId !== taskId && constraint.afterTaskId !== taskId
     );
+    this.state.presetResults = null;
     this.persistState();
     this.render();
     this.showUndoToast("已标记完成", () => this.undoLastCompletedTask());
@@ -990,6 +1038,7 @@ class AttentionReorderApp {
     this.state.currentQueue = [...activeTasks, restoredTask, ...outTasks];
     this.state.completedTasks = completedTasks;
     this.state.lastCompletedTask = null;
+    this.state.presetResults = null;
     this.persistState();
     this.render();
     this.showToast("已撤销完成");

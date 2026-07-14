@@ -69,7 +69,7 @@ function generateSummary(tasks, source, preservedManualConstraints, brokenManual
   const newLater = newTasks.filter((task) => !isOutOfToday(task) && task.recommendation !== "do_now").length;
   const newOut = newTasks.filter((task) => isOutOfToday(task)).length;
 
-  let summary = source === "fallback" ? "当前模型服务暂不可用，已用备用规则完成重排。" : "本次重排完成。";
+  let summary = source === "fallback" ? "已按智能规则完成重排。" : "本次重排完成。";
   if (newTasks.length > 0) {
     const segments = [];
     if (newNow > 0) segments.push(`${newNow} 项进入现在做`);

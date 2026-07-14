@@ -77,7 +77,7 @@ function extractTasksFallback(rawInput) {
   return {
     extractedTasks: tasks,
     inputSummary: "本次使用备用规则抽取任务。",
-    warnings: ["当前模型服务暂不可用，已用备用规则完成重排"]
+    warnings: ["已按智能规则完成重排"]
   };
 }
 

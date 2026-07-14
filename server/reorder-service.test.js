@@ -120,6 +120,73 @@ test("reorder service returns requested rule profile", async () => {
   assert.equal(result.ruleProfile.weights.goalImpact, 0.38);
 });
 
+test("reorder service returns cached results for every rule preset", async () => {
+  const service = createReorderService({ provider: { isConfigured: () => false } });
+  const result = await service.reorder({
+    rawInput: "今晚必须提交材料",
+    rulePreset: "deadline_first",
+    currentQueue: [],
+    outOfToday: [],
+    manualOrderConstraints: [],
+    manualOutIds: []
+  });
+
+  assert.deepEqual(Object.keys(result.presetResults).sort(), [
+    "balanced",
+    "deadline_first",
+    "goal_first",
+    "low_effort_first"
+  ]);
+  assert.equal(result.rulePreset, "deadline_first");
+  assert.equal(result.presetResults.deadline_first.rulePreset, "deadline_first");
+  assert.equal(result.presetResults.goal_first.ruleProfile.label, "目标优先");
+  assert.equal(result.presetResults.balanced.extractedTasks.length, 1);
+});
+
+test("reorder service analyzes input once before producing all rule preset results", async () => {
+  let analyzeCallCount = 0;
+  const service = createReorderService({
+    provider: {
+      isConfigured: () => true,
+      analyze: async () => {
+        analyzeCallCount += 1;
+        return {
+          extractedTasks: [
+            {
+              title: "提交初赛帖",
+              deadlineText: "今晚",
+              urgency: 5,
+              goalImpact: 5,
+              blockingRisk: 3,
+              effort: 2,
+              energyFit: 4,
+              taskValue: 5,
+              explicitToday: true,
+              confidence: 0.9
+            }
+          ],
+          inputSummary: "识别到初赛提交任务。",
+          warnings: []
+        };
+      }
+    }
+  });
+
+  const result = await service.reorder({
+    rawInput: "今晚必须提交初赛帖",
+    rulePreset: "balanced",
+    currentQueue: [],
+    outOfToday: [],
+    manualOrderConstraints: [],
+    manualOutIds: []
+  });
+
+  assert.equal(analyzeCallCount, 1);
+  assert.equal(result.source, "model");
+  assert.equal(result.presetResults.balanced.queue[0].title, "提交初赛帖");
+  assert.equal(result.presetResults.low_effort_first.queue[0].title, "提交初赛帖");
+});
+
 test("reorder service falls back to balanced for unknown rule preset", async () => {
   const service = createReorderService({ provider: { isConfigured: () => false } });
   const result = await service.reorder({

@@ -131,10 +131,10 @@ h4 {
   min-height: var(--topbar-height);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 18px;
   border-bottom: 1px solid rgba(24, 25, 21, 0.09);
-  padding: 12px clamp(16px, 4vw, 48px);
+  padding: 12px clamp(16px, 6vw, 80px);
   background: rgba(243, 242, 236, 0.9);
   backdrop-filter: blur(18px);
 }
@@ -149,6 +149,8 @@ h4 {
 
 .mode-wrap {
   min-width: 0;
+  max-width: 1200px;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -163,6 +165,7 @@ h4 {
   border-radius: 8px;
   padding: 4px;
   background: rgba(255, 255, 255, 0.64);
+  width: 100%;
 }
 
 .mode-prefix {
@@ -173,6 +176,7 @@ h4 {
 }
 
 .mode-button {
+  flex: 1;
   min-height: 36px;
   border-radius: 6px;
   background: transparent;
@@ -306,7 +310,7 @@ h4 {
 
 .focus-hero h1 {
   max-width: 850px;
-  margin: 40px 0;
+  margin: 50px 0;
   font-size: clamp(36px, 6.5vw, 72px);
   font-family: Impact, Charcoal, sans-serif;
   font-weight: 900;
@@ -497,6 +501,18 @@ h4 {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+.composer-input:focus {
+  outline: none;
+  border: 0;
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.composer-input-shell:focus-within {
+  outline: none;
+  box-shadow: none;
 }
 
 .composer-input::placeholder {

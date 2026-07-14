@@ -1,9 +1,11 @@
 const { extractTasksFallback } = require("./fallback-extractor");
 const { normalizeAnalysisResult, normalizeReorderRequest } = require("./schema");
 const { scoreTasks } = require("./scoring-engine");
-const { getRuleProfile } = require("./rule-profiles");
+const { getRuleProfile, RULE_PROFILES } = require("./rule-profiles");
 const { applyManualOutRules, isOutOfToday, reorderTasks } = require("./reorder-engine");
 const { explainTasks, generateChangeEvents, generateSummary } = require("./explanation-generator");
+
+const RULE_PRESETS = Object.keys(RULE_PROFILES);
 
 function createReorderService({ provider } = {}) {
   return {
@@ -14,42 +16,67 @@ function createReorderService({ provider } = {}) {
       const analysisPayload = await analyzeWithFallback(provider, request);
       const newTasks = normalizeDrafts(analysisPayload.analysis.extractedTasks, request.rawInput);
       const mergedTasks = mergeWithExistingTasks(previousTasks, newTasks);
-      const scoredTasks = scoreTasks(mergedTasks, rulePayload.rulePreset);
-      const manuallyFilteredTasks = applyManualOutRules(scoredTasks, request.manualOutIds);
-      const reorderPayload = reorderTasks(manuallyFilteredTasks, request.manualOrderConstraints);
-      const explainedTasks = explainTasks(
-        reorderPayload.tasks,
-        reorderPayload.preservedManualConstraints,
-        reorderPayload.brokenManualConstraints
-      );
-
-      const queue = getTodayTasks(explainedTasks);
-      const outOfToday = getOutOfTodayTasks(explainedTasks);
       const warnings = [...analysisPayload.analysis.warnings];
       if (analysisPayload.warning) warnings.push(analysisPayload.warning);
+      const presetResults = Object.fromEntries(
+        RULE_PRESETS.map((preset) => [
+          preset,
+          buildPresetResult({
+            preset,
+            source: analysisPayload.source,
+            request,
+            previousTasks,
+            mergedTasks,
+            newTasks,
+            warnings
+          })
+        ])
+      );
+      const selectedResult = presetResults[rulePayload.rulePreset];
 
       return {
+        ...selectedResult,
         source: analysisPayload.source,
-        rulePreset: rulePayload.rulePreset,
-        ruleProfile: rulePayload.ruleProfile,
-        summary: generateSummary(
-          explainedTasks,
-          analysisPayload.source,
-          reorderPayload.preservedManualConstraints,
-          reorderPayload.brokenManualConstraints
-        ),
         inputText: request.rawInput,
         extractedTasks: newTasks,
-        queue,
-        outOfToday,
-        tradeoffSuggestions: generateTradeoffSuggestions(explainedTasks),
-        changeEvents: generateChangeEvents(previousTasks, explainedTasks),
-        preservedManualConstraints: reorderPayload.preservedManualConstraints,
-        brokenManualConstraints: reorderPayload.brokenManualConstraints,
-        allTasks: explainedTasks,
+        presetResults,
         warnings
       };
     }
+  };
+}
+
+function buildPresetResult({ preset, source, request, previousTasks, mergedTasks, newTasks, warnings }) {
+  const rulePayload = getRuleProfile(preset);
+  const scoredTasks = scoreTasks(mergedTasks, rulePayload.rulePreset);
+  const manuallyFilteredTasks = applyManualOutRules(scoredTasks, request.manualOutIds);
+  const reorderPayload = reorderTasks(manuallyFilteredTasks, request.manualOrderConstraints);
+  const explainedTasks = explainTasks(
+    reorderPayload.tasks,
+    reorderPayload.preservedManualConstraints,
+    reorderPayload.brokenManualConstraints
+  );
+
+  return {
+    source,
+    rulePreset: rulePayload.rulePreset,
+    ruleProfile: rulePayload.ruleProfile,
+    summary: generateSummary(
+      explainedTasks,
+      source,
+      reorderPayload.preservedManualConstraints,
+      reorderPayload.brokenManualConstraints
+    ),
+    inputText: request.rawInput,
+    extractedTasks: newTasks,
+    queue: getTodayTasks(explainedTasks),
+    outOfToday: getOutOfTodayTasks(explainedTasks),
+    tradeoffSuggestions: generateTradeoffSuggestions(explainedTasks),
+    changeEvents: generateChangeEvents(previousTasks, explainedTasks),
+    preservedManualConstraints: reorderPayload.preservedManualConstraints,
+    brokenManualConstraints: reorderPayload.brokenManualConstraints,
+    allTasks: explainedTasks,
+    warnings
   };
 }
 
@@ -80,7 +107,7 @@ async function analyzeWithFallback(provider, request) {
     return {
       source: "fallback",
       analysis: extractTasksFallback(request.rawInput),
-      warning: "当前模型服务暂不可用，已用备用规则完成重排"
+      warning: "已按智能规则完成重排"
     };
   }
 }
