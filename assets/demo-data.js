@@ -80,7 +80,7 @@ export const DEMO_DATA = {
   examples: [
     {
       id: "example_1",
-      name: "Demo 提交场景",
+      name: "Demo 提交",
       input: "刚想到还要录制 1 分钟演示视频、检查线上链接、补一版项目说明。",
       extractedTasks: [
         {
@@ -129,7 +129,7 @@ export const DEMO_DATA = {
     },
     {
       id: "example_2",
-      name: "开发紧急场景",
+      name: "日常开发",
       input: "刚发现移动端按钮会遮挡文字，另外要修一下空状态文案，今晚还想研究新的动画库。",
       extractedTasks: [
         {
@@ -178,7 +178,7 @@ export const DEMO_DATA = {
     },
     {
       id: "example_3",
-      name: "生活琐事场景",
+      name: "生活琐事",
       input: "记得买洗衣液，顺便整理桌面，还有晚上想刷一下视频放松。",
       extractedTasks: [
         {

@@ -139,7 +139,16 @@ h4 {
   backdrop-filter: blur(18px);
 }
 
+.app-title {
+  flex: 0 0 auto;
+  font-size: 16px;
+  font-weight: 850;
+  color: var(--focus-dark);
+  letter-spacing: -0.02em;
+}
+
 .mode-label {
+  flex: 0 0 auto;
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
@@ -158,6 +167,8 @@ h4 {
 }
 
 .mode-switcher {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -165,7 +176,6 @@ h4 {
   border-radius: 8px;
   padding: 4px;
   background: rgba(255, 255, 255, 0.64);
-  width: 100%;
 }
 
 .mode-prefix {
@@ -1368,13 +1378,17 @@ textarea::placeholder {
     padding: 10px 12px;
   }
 
+  .app-title {
+    font-size: 14px;
+  }
+
   .mode-label {
     display: none;
   }
 
   .mode-wrap {
     flex: 1 1 auto;
-    justify-content: flex-end;
+    justify-content: space-between;
   }
 
   .mode-switcher {
