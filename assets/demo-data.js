@@ -1,4 +1,4 @@
-const DEMO_DATA = {
+export const DEMO_DATA = {
   initialQueue: [
     {
       id: "task_demo_home",

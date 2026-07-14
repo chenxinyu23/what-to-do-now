@@ -38,8 +38,21 @@ app.post("/api/reorder", async (req, res) => {
 });
 
 if (require.main === module) {
-  app.listen(config.port, () => {
-    console.log(`AI attention reorder assistant running at http://localhost:${config.port}`);
+  app.listen(config.port, config.host, () => {
+    const os = require("os");
+    const interfaces = os.networkInterfaces();
+    let localIp = "127.0.0.1";
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === "IPv4" && !iface.internal) {
+          localIp = iface.address;
+          break;
+        }
+      }
+    }
+    console.log(`AI attention reorder assistant running at:`);
+    console.log(`  - Local: http://localhost:${config.port}`);
+    console.log(`  - Network: http://${localIp}:${config.port}`);
     if (!provider.isConfigured()) {
       console.log("MODEL_API_KEY is not configured; /api/reorder will use local fallback.");
     }

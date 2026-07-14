@@ -1,3 +1,6 @@
+import { getIcon } from './icons/icons.js';
+import { DEMO_DATA } from './demo-data.js';
+
 const RULE_PROFILES = {
   balanced: {
     label: "平衡",
@@ -1240,16 +1243,10 @@ class AttentionReorderApp {
     ];
 
     header.innerHTML = `
-      <button class="brand" type="button" aria-label="注意力重排助手">
-        <span class="brand-mark" aria-hidden="true">序</span>
-        <span class="brand-copy">
-          <strong>注意力重排</strong>
-          <small>新想法出现时，重新安排今天</small>
-        </span>
-      </button>
       <div class="mode-wrap">
-        <span class="mode-label">重排方式</span>
-        <div class="mode-switcher" role="radiogroup" aria-label="选择重排方式">
+        <span class="mode-label">选择你的注意力模式</span>
+        <div class="mode-switcher" role="radiogroup" aria-label="选择注意力模式">
+          <span class="mode-prefix">模式：</span>
           ${presets.map(([preset, label]) => `
             <button
               class="rule-preset-btn mode-button ${preset === currentPreset ? "active" : ""}"
@@ -1275,9 +1272,8 @@ class AttentionReorderApp {
 
     if (!currentTask) {
       container.innerHTML = `
-        <span class="screen-number" aria-hidden="true">01</span>
         <section class="focus-hero empty-focus">
-          <p class="eyebrow"><span class="live-dot"></span> 现在要做什么</p>
+          <p class="eyebrow"> <span class="live-dot"></span> 现在要做：</p>
           <h1 id="focus-title">现在没有必须立刻处理的事</h1>
           <p class="hero-reason">新增一个想法后，我会重新判断今天应该先发生什么。</p>
         </section>
@@ -1292,19 +1288,15 @@ class AttentionReorderApp {
     const pendulum = this.renderFocusPendulum(queue);
 
     container.innerHTML = `
-      <span class="screen-number" aria-hidden="true">01</span>
       <section class="focus-hero" aria-labelledby="focus-title">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="live-dot"></span> 现在要做什么</p>
+          <p class="eyebrow"><span class="live-dot"></span> 现在要做：</p>
           <h1 id="focus-title">${this.escapeHtml(currentTask.title)}</h1>
           <p class="hero-reason">${this.escapeHtml(currentTask.reason || "根据当前排序，先处理这件事。")}</p>
           <div class="hero-meta">
             <span>${this.escapeHtml(profile.label)}</span>
             ${currentTask.deadline ? `<span>截止 ${this.escapeHtml(currentTask.deadline)}</span>` : ""}
             <span>${completedCount}/${total} 已完成</span>
-          </div>
-          <div class="hero-score" aria-label="优先级分数">
-            <i style="width: ${scoreWidth}%"></i>
           </div>
         </div>
         ${pendulum}
@@ -1315,21 +1307,11 @@ class AttentionReorderApp {
   }
 
   renderFocusPendulum(queue) {
-    const slots = ["现在", "稍后", "晚点"];
-    const positions = ["one", "two", "three"];
-    const tasks = queue.slice(0, 3);
-
     return `
       <div class="focus-pendulum" aria-hidden="true">
         <div class="pendulum-stage">
           <div class="pivot"></div>
           <div class="needle"></div>
-          ${tasks.map((task, index) => `
-            <article class="timeline-card ${positions[index]}">
-              <strong>${slots[index]}</strong>
-              <span>${this.escapeHtml(task.title)}</span>
-            </article>
-          `).join("")}
         </div>
       </div>
     `;
@@ -1342,20 +1324,19 @@ class AttentionReorderApp {
 
     return `
       <section class="idea-composer-card" aria-labelledby="idea-composer-title">
-        <p class="composer-kicker">有新想法？</p>
+        <p class="composer-kicker"><span class="live-dot"></span> 有新想法？</p>
         <h2 id="idea-composer-title">说出来，今天会自动重新安排。</h2>
         <div class="composer-input-row">
           <label class="sr-only" for="input-text">输入新的任务或想法</label>
           <div class="composer-input-shell">
-            <input
+            <textarea
               id="input-text"
               class="composer-input"
-              type="text"
               placeholder="输入或说出一件事"
               autocomplete="off"
-              value="${inputValue}"
+              rows="1"
               ${this.state.isProcessing ? "disabled" : ""}
-            >
+            >${inputValue}</textarea>
             <button
               id="voice-btn"
               class="composer-mic-button ${this.state.speechSupported ? "" : "unsupported"}"
@@ -1364,7 +1345,7 @@ class AttentionReorderApp {
               ${this.state.isProcessing ? "disabled" : ""}
               ${voiceFallbackAttr}
             >
-              <span class="mic-icon" aria-hidden="true"></span>
+              ${getIcon('AudioOutlined')}
             </button>
           </div>
           <button
@@ -1397,10 +1378,9 @@ class AttentionReorderApp {
     const total = queue.length + outOfToday.length;
 
     container.innerHTML = `
-      <span class="screen-number dark" aria-hidden="true">02</span>
       <div class="queue-header">
         <div>
-          <p class="section-kicker">今日安排</p>
+          <p class="section-kicker"><span class="live-dot"></span> 今日安排：</p>
           <h2 id="queue-title">还要做什么</h2>
         </div>
         <span class="queue-count">共 ${total} 项</span>
@@ -1476,9 +1456,6 @@ class AttentionReorderApp {
             <span class="recommendation ${rec.class}">${rec.text}</span>
           </div>
           <p class="task-reason">${this.escapeHtml(task.reason)}</p>
-          <div class="score-detail">
-            <div class="score-bar" style="width: ${scoreWidth}%"></div>
-          </div>
         </div>
       </div>
     `;
@@ -1553,10 +1530,9 @@ class AttentionReorderApp {
 
     if (!this.state.reorderResult) {
       panel.innerHTML = `
-        <span class="screen-number dark" aria-hidden="true">03</span>
         <div class="summary-shell">
           <div class="summary-heading">
-            <p class="section-kicker">复盘</p>
+            <p class="section-kicker"><span class="live-dot"></span> 复盘</p>
             <h2 id="summary-title">重排摘要</h2>
           </div>
           <div class="reason-empty">
@@ -1582,10 +1558,9 @@ class AttentionReorderApp {
     const source = sourceLabels[result.source];
 
     panel.innerHTML = `
-      <span class="screen-number dark" aria-hidden="true">03</span>
       <div class="summary-shell">
         <div class="summary-heading">
-          <p class="section-kicker">复盘</p>
+          <p class="section-kicker"><span class="live-dot"></span> 复盘</p>
           <h2 id="summary-title">重排摘要</h2>
         </div>
         <div class="summary-card">
