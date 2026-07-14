@@ -1390,6 +1390,7 @@ class AttentionReorderApp {
       ${nowTasks.length > 0 ? this.renderTaskGroup("接下来", nowTasks, "group-now", true) : ""}
       ${laterTasks.length > 0 ? this.renderTaskGroup("今天晚点做", laterTasks, "group-later", true) : ""}
       ${this.renderTaskGroup("不放进今天", outOfToday, "group-out", false)}
+      ${this.renderCompletedTasks()}
     `;
   }
 
@@ -1540,7 +1541,6 @@ class AttentionReorderApp {
             <p>点击首屏底部“新增想法并重排”后，这里会展示本次取舍摘要。</p>
           </div>
           ${this.renderRulePanel()}
-          ${this.renderCompletedTasks()}
           ${this.renderResetFooter()}
         </div>
       `;
@@ -1604,7 +1604,6 @@ class AttentionReorderApp {
           </div>
         ` : ""}
         ${this.renderRulePanel()}
-        ${this.renderCompletedTasks()}
         ${this.renderResetFooter()}
       </div>
     `;
