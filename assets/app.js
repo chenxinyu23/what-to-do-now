@@ -46,7 +46,6 @@ class AttentionReorderApp {
       isRuleDirty: false,
       isRuleDetailsOpen: false,
       isChangeDetailsOpen: false,
-      lastManualMessage: "",
       lastCompletedTask: null,
       isCompletedExpanded: false,
       isProcessing: false,
@@ -124,7 +123,6 @@ class AttentionReorderApp {
         isRuleDirty: Boolean(parsed.isRuleDirty),
         isRuleDetailsOpen: Boolean(parsed.isRuleDetailsOpen),
         isChangeDetailsOpen: Boolean(parsed.isChangeDetailsOpen),
-        lastManualMessage: parsed.lastManualMessage || "",
         isCompletedExpanded: Boolean(parsed.isCompletedExpanded),
         goalDraft: parsed.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
         isGoalDirty: Boolean(parsed.isGoalDirty)
@@ -151,7 +149,6 @@ class AttentionReorderApp {
         isRuleDirty: this.state.isRuleDirty,
         isRuleDetailsOpen: this.state.isRuleDetailsOpen,
         isChangeDetailsOpen: this.state.isChangeDetailsOpen,
-        lastManualMessage: this.state.lastManualMessage,
         isCompletedExpanded: this.state.isCompletedExpanded,
         isGoalDirty: this.state.isGoalDirty
       };
@@ -161,37 +158,10 @@ class AttentionReorderApp {
     }
   }
 
-  resetDemo() {
-    localStorage.removeItem(this.storageKey);
-    this.state.rawInput = "";
-    this.state.todayGoal = "完成 AI 创意大赛 Demo 初赛提交";
-    this.state.currentQueue = this.normalizeInitialQueue(DEMO_DATA.initialQueue);
-    this.state.completedTasks = [];
-    this.state.lastQueue = [];
-    this.state.extractedTasks = [];
-    this.state.reorderResult = null;
-    this.state.manualOrderConstraints = [];
-    this.state.manualOutIds = [];
-    this.state.rulePreset = "balanced";
-    this.state.isRuleDirty = false;
-    this.state.isRuleDetailsOpen = false;
-    this.state.isChangeDetailsOpen = false;
-    this.state.lastManualMessage = "";
-    this.state.lastCompletedTask = null;
-    this.state.isCompletedExpanded = false;
-    this.state.isIdeaSheetOpen = false;
-    this.state.isEditingGoal = false;
-    this.state.goalDraft = this.state.todayGoal;
-    this.state.isGoalDirty = false;
-    this.showToast("已恢复默认队列");
-    this.render();
-  }
-
   bindEvents() {
     const reorderBtn = document.getElementById("reorder-btn");
     const inputText = document.getElementById("input-text");
     const voiceBtn = document.getElementById("voice-btn");
-    const resetBtn = document.getElementById("reset-btn");
     const closeSheetBtn = document.getElementById("close-idea-sheet");
     const sheetBackdrop = document.getElementById("idea-sheet-backdrop");
     const editGoalBtn = document.getElementById("edit-goal-btn");
@@ -207,7 +177,6 @@ class AttentionReorderApp {
     if (sheetBackdrop) sheetBackdrop.onclick = () => this.closeIdeaSheet();
     if (reorderBtn) reorderBtn.onclick = () => this.handleReorder();
     if (voiceBtn) voiceBtn.onclick = () => this.handleVoiceInput();
-    if (resetBtn) resetBtn.onclick = () => this.resetDemo();
     if (editGoalBtn) editGoalBtn.onclick = () => this.startGoalEdit();
     if (cancelGoalBtn) cancelGoalBtn.onclick = () => this.cancelGoalEdit();
     if (saveGoalBtn) saveGoalBtn.onclick = () => this.saveGoalEdit();
@@ -253,7 +222,7 @@ class AttentionReorderApp {
       };
     });
 
-    document.querySelectorAll(".complete-task-btn").forEach((btn) => {
+    document.querySelectorAll(".complete-task-btn, .hero-complete-btn").forEach((btn) => {
       btn.onpointerdown = (event) => {
         event.stopPropagation();
       };
@@ -930,7 +899,6 @@ class AttentionReorderApp {
     this.state.currentQueue = [...rerankedActive, ...outTasks];
     this.state.manualOrderConstraints = this.deriveManualOrderConstraints(rerankedActive);
     this.state.reorderResult = this.createResultFromCurrentQueue("已将该任务置为现在要做。");
-    this.state.lastManualMessage = "已置为现在要做";
     this.persistState();
     this.showToast("已置为现在要做");
     this.render();
@@ -966,7 +934,6 @@ class AttentionReorderApp {
     this.state.manualOutIds = Array.from(new Set([...this.state.manualOutIds, taskId]));
     this.state.manualOrderConstraints = this.deriveManualOrderConstraints(activeTasks);
     this.state.reorderResult = this.createResultFromCurrentQueue("已将该任务移出今天，后续普通重排不会自动放回。");
-    this.state.lastManualMessage = "已移出今天";
     this.persistState();
     this.showToast("已移出今天");
     this.render();
@@ -997,7 +964,6 @@ class AttentionReorderApp {
     this.state.manualOrderConstraints = this.state.manualOrderConstraints.filter(
       (constraint) => constraint.beforeTaskId !== taskId && constraint.afterTaskId !== taskId
     );
-    this.state.lastManualMessage = "";
     this.persistState();
     this.render();
     this.showUndoToast("已标记完成", () => this.undoLastCompletedTask());
@@ -1024,7 +990,6 @@ class AttentionReorderApp {
     this.state.currentQueue = [...activeTasks, restoredTask, ...outTasks];
     this.state.completedTasks = completedTasks;
     this.state.lastCompletedTask = null;
-    this.state.lastManualMessage = "";
     this.persistState();
     this.render();
     this.showToast("已撤销完成");
@@ -1294,15 +1259,14 @@ class AttentionReorderApp {
           <h1 id="focus-title">${this.escapeHtml(currentTask.title)}</h1>
           <p class="hero-reason">${this.escapeHtml(currentTask.reason || "根据当前排序，先处理这件事。")}</p>
           <div class="hero-meta">
-            <span>${this.escapeHtml(profile.label)}</span>
             ${currentTask.deadline ? `<span>截止 ${this.escapeHtml(currentTask.deadline)}</span>` : ""}
-            <span>${completedCount}/${total} 已完成</span>
+            <button class="hero-complete-btn" type="button" data-task-id="${currentTask.id}">标记完成</button>
           </div>
         </div>
         ${pendulum}
       </section>
       ${this.renderInlineIdeaComposer()}
-      <button class="scroll-cue" type="button" data-scroll-target="today-queue">下滑 · 还要做什么</button>
+      <button class="scroll-cue" type="button" data-scroll-target="today-queue">↓下滑 · 还要做什么</button>
     `;
   }
 
@@ -1375,7 +1339,8 @@ class AttentionReorderApp {
 
     const nowTasks = remainingQueue.filter((task) => task.recommendation === "do_now");
     const laterTasks = remainingQueue.filter((task) => task.recommendation !== "do_now");
-    const total = queue.length + outOfToday.length;
+    const completedCount = (this.state.completedTasks || []).length;
+    const total = queue.length + outOfToday.length + completedCount;
 
     container.innerHTML = `
       <div class="queue-header">
@@ -1383,10 +1348,9 @@ class AttentionReorderApp {
           <p class="section-kicker"><span class="live-dot"></span> 今日安排：</p>
           <h2 id="queue-title">还要做什么</h2>
         </div>
-        <span class="queue-count">共 ${total} 项</span>
+        <span class="queue-count">${completedCount}/${total} 已完成</span>
       </div>
       <p class="positioning-line">重排今日注意力，而不是追加待办。</p>
-      ${this.state.lastManualMessage ? `<div class="manual-status">${this.escapeHtml(this.state.lastManualMessage)}</div>` : ""}
       ${nowTasks.length > 0 ? this.renderTaskGroup("接下来", nowTasks, "group-now", true) : ""}
       ${laterTasks.length > 0 ? this.renderTaskGroup("今天晚点做", laterTasks, "group-later", true) : ""}
       ${this.renderTaskGroup("不放进今天", outOfToday, "group-out", false)}
@@ -1533,15 +1497,14 @@ class AttentionReorderApp {
       panel.innerHTML = `
         <div class="summary-shell">
           <div class="summary-heading">
-            <p class="section-kicker"><span class="live-dot"></span> 复盘</p>
-            <h2 id="summary-title">重排摘要</h2>
+            <p class="section-kicker"><span class="live-dot"></span> 重排摘要：</p>
           </div>
           <div class="reason-empty">
             <h3>还没有新的重排结果</h3>
             <p>点击首屏底部“新增想法并重排”后，这里会展示本次取舍摘要。</p>
           </div>
           ${this.renderRulePanel()}
-          ${this.renderResetFooter()}
+          ${this.renderSummaryFooter()}
         </div>
       `;
       return;
@@ -1560,8 +1523,7 @@ class AttentionReorderApp {
     panel.innerHTML = `
       <div class="summary-shell">
         <div class="summary-heading">
-          <p class="section-kicker"><span class="live-dot"></span> 复盘</p>
-          <h2 id="summary-title">重排摘要</h2>
+          <p class="section-kicker"><span class="live-dot"></span> 重排摘要：</p>
         </div>
         <div class="summary-card">
           <p>${this.escapeHtml(result.summary)}</p>
@@ -1604,7 +1566,7 @@ class AttentionReorderApp {
           </div>
         ` : ""}
         ${this.renderRulePanel()}
-        ${this.renderResetFooter()}
+        ${this.renderSummaryFooter()}
       </div>
     `;
   }
@@ -1698,10 +1660,10 @@ class AttentionReorderApp {
     `;
   }
 
-  renderResetFooter() {
+  renderSummaryFooter() {
     return `
-      <div class="reset-footer">
-        <button id="reset-btn" class="btn-link">重置 Demo</button>
+      <div class="summary-footer">
+        <button class="btn-link" type="button" data-scroll-target="focus-screen">↑ 回到现在要做</button>
       </div>
     `;
   }

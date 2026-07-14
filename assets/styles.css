@@ -204,7 +204,7 @@ h4 {
   overflow-y: auto;
   overscroll-behavior-y: contain;
   scroll-behavior: smooth;
-  scroll-snap-type: y mandatory;
+  scroll-snap-type: y proximity;
   scrollbar-width: none;
 }
 
@@ -217,7 +217,7 @@ h4 {
   position: relative;
   min-height: 100%;
   scroll-snap-align: start;
-  scroll-snap-stop: always;
+  scroll-snap-stop: normal;
   padding: clamp(14px, 2.6vw, 34px) clamp(14px, 4vw, 48px) 84px;
 }
 
@@ -227,7 +227,11 @@ h4 {
   gap: 14px;
 }
 
-.queue-screen,
+.queue-screen {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
 .summary-screen {
   background: var(--surface);
 }
@@ -340,6 +344,24 @@ h4 {
   color: rgba(24, 25, 21, 0.70);
   font-size: 11px;
   font-weight: 650;
+}
+
+.hero-complete-btn {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--focus);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: transparent;
+  color: var(--focus-dark);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.hero-complete-btn:hover {
+  background: var(--focus-soft);
 }
 
 .focus-pendulum {
@@ -735,23 +757,12 @@ h4 {
   border-color: var(--focus);
 }
 
-.manual-status {
-  margin-top: 14px;
-  border-left: 3px solid var(--focus);
-  border-radius: 0 4px 4px 0;
-  background: var(--focus-soft);
-  padding: 9px 12px;
-  color: var(--focus-dark);
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .pin-task-btn {
   min-height: 24px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--focus);
   border-radius: 999px;
   background: transparent;
-  color: var(--muted);
+  color: var(--focus-dark);
   padding: 0 8px;
   font-size: 11px;
   font-weight: 800;
@@ -1244,9 +1255,11 @@ textarea::placeholder {
   text-decoration: line-through;
 }
 
-.reset-footer {
+.summary-footer {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   padding-top: 14px;
 }
 
