@@ -84,46 +84,46 @@ export const DEMO_DATA = {
       input: "刚想到还要录制 1 分钟演示视频、检查线上链接、补一版项目说明。",
       extractedTasks: [
         {
-          title: "提交报名材料",
-          deadline: "明天中午前",
+          title: "录制 1 分钟演示视频",
+          deadline: "今天",
           category: "submit",
+          source: "text_input",
+          urgency: 4,
+          goalImpact: 5,
+          blockingRisk: 4,
+          effort: 3,
+          energyFit: 4,
+          taskValue: 5,
+          recommendation: "do_now",
+          reason: "直接影响评委理解 Demo，需要优先准备。"
+        },
+        {
+          title: "检查线上链接",
+          deadline: "今天",
+          category: "develop",
           source: "text_input",
           urgency: 5,
           goalImpact: 5,
           blockingRisk: 5,
-          effort: 2,
-          energyFit: 4,
-          taskValue: 5,
-          recommendation: "do_now",
-          reason: "截止时间最近，且直接影响参赛提交。"
-        },
-        {
-          title: "问老师推荐信",
-          deadline: "今天",
-          category: "communicate",
-          source: "text_input",
-          urgency: 4,
-          goalImpact: 4,
-          blockingRisk: 5,
           effort: 1,
           energyFit: 5,
-          taskValue: 4,
+          taskValue: 5,
           recommendation: "do_now",
-          reason: "可能阻塞后续流程，且沟通成本较低，应尽早发出。"
+          reason: "线上链接不可用会直接阻塞提交体验，且检查成本低。"
         },
         {
-          title: "看竞品资料",
-          deadline: "今晚",
-          category: "research",
+          title: "补一版项目说明",
+          deadline: "今天",
+          category: "submit",
           source: "text_input",
           urgency: 3,
-          goalImpact: 3,
-          blockingRisk: 1,
+          goalImpact: 4,
+          blockingRisk: 2,
           effort: 3,
           energyFit: 3,
           taskValue: 4,
           recommendation: "schedule_later",
-          reason: "仍有调研价值，但更适合放到晚上低精力时段处理。"
+          reason: "有助于提交材料完整，但应排在链接检查和演示视频之后。"
         }
       ]
     },

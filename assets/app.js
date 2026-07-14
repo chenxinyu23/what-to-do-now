@@ -34,6 +34,7 @@ class AttentionReorderApp {
     this.toastTimer = null;
     this.state = {
       rawInput: "",
+      selectedExampleId: null,
       todayGoal: "完成 AI 创意大赛 Demo 初赛提交",
       currentQueue: [],
       completedTasks: [],
@@ -102,6 +103,11 @@ class AttentionReorderApp {
     return RULE_PROFILES[this.normalizeRulePreset(rulePreset)];
   }
 
+  normalizeSelectedExampleId(exampleId, rawInput) {
+    const example = DEMO_DATA.examples.find((item) => item.id === exampleId);
+    return example && String(rawInput || "").trim() === example.input.trim() ? example.id : null;
+  }
+
   loadSavedState() {
     try {
       const rawState = localStorage.getItem(this.storageKey);
@@ -112,6 +118,7 @@ class AttentionReorderApp {
 
       return {
         rawInput: parsed.rawInput || "",
+        selectedExampleId: this.normalizeSelectedExampleId(parsed.selectedExampleId, parsed.rawInput || ""),
         todayGoal: parsed.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
         currentQueue: parsed.currentQueue,
         completedTasks: Array.isArray(parsed.completedTasks) ? parsed.completedTasks : [],
@@ -139,6 +146,7 @@ class AttentionReorderApp {
     try {
       const persisted = {
         rawInput: this.state.rawInput,
+        selectedExampleId: this.state.selectedExampleId,
         todayGoal: this.state.todayGoal,
         currentQueue: this.state.currentQueue,
         completedTasks: this.state.completedTasks,
@@ -197,6 +205,7 @@ class AttentionReorderApp {
     if (inputText) {
       inputText.oninput = (event) => {
         this.state.rawInput = event.target.value;
+        this.state.selectedExampleId = this.normalizeSelectedExampleId(this.state.selectedExampleId, this.state.rawInput);
         this.persistState();
         const reorderBtn = document.getElementById("reorder-btn");
         if (reorderBtn) {
@@ -259,8 +268,34 @@ class AttentionReorderApp {
     const input = document.getElementById("input-text");
     if (input) input.value = example.input;
     this.state.rawInput = example.input;
+    this.state.selectedExampleId = example.id;
     this.persistState();
     this.render();
+  }
+
+  getSelectedExampleForFastPath(inputText) {
+    const example = DEMO_DATA.examples.find((item) => item.id === this.state.selectedExampleId);
+    if (!example) return null;
+    return inputText.trim() === example.input.trim() ? example : null;
+  }
+
+  applyExampleFastPath(example, inputText) {
+    const previousQueue = this.cloneTasks(this.state.currentQueue);
+    const presetResults = this.buildExamplePresetResults(example, inputText, previousQueue);
+    const result = presetResults[this.normalizeRulePreset(this.state.rulePreset)];
+
+    this.state.lastQueue = previousQueue;
+    this.state.extractedTasks = result.extractedTasks;
+    this.state.presetResults = presetResults;
+    this.applyPresetResult(result);
+    this.state.isProcessing = false;
+    this.state.isRuleDirty = false;
+    this.state.rawInput = "";
+    this.state.selectedExampleId = null;
+    this.state.isIdeaSheetOpen = false;
+    this.persistState();
+    this.render();
+    this.showToast("已加入想法并重排");
   }
 
   async handleReorder() {
@@ -271,6 +306,12 @@ class AttentionReorderApp {
     }
 
     this.state.rawInput = inputText;
+    const fastPathExample = this.getSelectedExampleForFastPath(inputText);
+    if (fastPathExample) {
+      this.applyExampleFastPath(fastPathExample, inputText);
+      return;
+    }
+
     this.state.isProcessing = true;
     this.render();
 
@@ -286,6 +327,7 @@ class AttentionReorderApp {
       this.state.rulePreset = this.normalizeRulePreset(result.rulePreset || this.state.rulePreset);
       this.state.isRuleDirty = false;
       this.state.rawInput = "";
+      this.state.selectedExampleId = null;
       this.state.isIdeaSheetOpen = false;
       this.persistState();
       this.render();
@@ -457,6 +499,19 @@ class AttentionReorderApp {
     const extractedTasks = this.taskExtractor(inputText);
     const normalizedTasks = this.normalizeTaskDrafts(extractedTasks, inputText);
 
+    return this.buildPresetResultsFromTasks(inputText, previousQueue, normalizedTasks);
+  }
+
+  buildExamplePresetResults(example, inputText, previousQueue) {
+    const normalizedTasks = this.normalizeTaskDrafts(
+      example.extractedTasks.map((task) => ({ ...task })),
+      inputText
+    );
+
+    return this.buildPresetResultsFromTasks(inputText, previousQueue, normalizedTasks);
+  }
+
+  buildPresetResultsFromTasks(inputText, previousQueue, normalizedTasks) {
     return Object.fromEntries(
       Object.keys(RULE_PROFILES).map((preset) => [
         preset,
@@ -1370,6 +1425,7 @@ class AttentionReorderApp {
         </div>
         ${this.state.speechSupported ? "" : `<p id="voice-fallback-hint" class="voice-fallback-hint">当前浏览器不支持网页语音识别，可使用系统键盘语音输入。</p>`}
         <div class="composer-examples" aria-label="快速体验示例">
+          <span class="examples-label">快速体验：</span>
           ${DEMO_DATA.examples.map((example) => `
             <button class="example-btn composer-example-btn" type="button" data-example-id="${example.id}" ${this.state.isProcessing ? "disabled" : ""}>${this.escapeHtml(example.name)}</button>
           `).join("")}

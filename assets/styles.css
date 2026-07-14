@@ -563,14 +563,52 @@ h4 {
 .composer-examples {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   margin-top: 14px;
 }
 
+.examples-label {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .composer-example-btn {
-  min-height: 32px;
+  position: relative;
+  min-height: 28px;
+  min-width: 0;
   border-radius: 999px;
   background: rgba(24, 25, 21, 0.06);
+  overflow: hidden;
+  animation: pulse-glow 2s ease-in-out infinite;
+  border: 1px solid rgba(150, 136, 227, 0.3);
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.composer-example-btn:nth-child(2) {
+  animation-delay: 0s;
+}
+
+.composer-example-btn:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.composer-example-btn:nth-child(4) {
+  animation-delay: 0.8s;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(150, 136, 227, 0);
+    border-color: rgba(150, 136, 227, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(150, 136, 227, 0.25);
+    border-color: rgba(150, 136, 227, 0.6);
+  }
 }
 
 .scroll-cue {
@@ -952,7 +990,7 @@ textarea::placeholder {
 
 .example-btn {
   min-height: 30px;
-  padding: 0 12px;
+  padding: 0 4px;
   background: var(--soft);
   color: var(--muted);
   font-size: 12px;

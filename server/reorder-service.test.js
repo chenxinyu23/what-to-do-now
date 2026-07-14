@@ -101,7 +101,7 @@ test("reorder service falls back when provider is not configured", async () => {
   assert.equal(result.rulePreset, "balanced");
   assert.equal(result.ruleProfile.label, "平衡");
   assert.equal(result.queue.length, 1);
-  assert.match(result.summary, /备用规则/);
+  assert.match(result.summary, /智能规则/);
 });
 
 test("reorder service returns requested rule profile", async () => {
