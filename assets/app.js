@@ -1394,7 +1394,7 @@ class AttentionReorderApp {
     return `
       <section class="idea-composer-card" aria-labelledby="idea-composer-title">
         <p class="composer-kicker"><span class="live-dot"></span> 有新想法？</p>
-        <h2 id="idea-composer-title">说出来，今天会自动重新安排。</h2>
+        <h2 id="idea-composer-title">说出来，今天会自动重新安排</h2>
         <div class="composer-input-row">
           <label class="sr-only" for="input-text">输入新的任务或想法</label>
           <div class="composer-input-shell">
