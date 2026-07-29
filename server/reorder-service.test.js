@@ -4,6 +4,7 @@ const { calculateScore, scoreTasks } = require("./scoring-engine");
 const { reorderTasks } = require("./reorder-engine");
 const { createReorderService } = require("./reorder-service");
 const { extractTasksFallback } = require("./fallback-extractor");
+const { normalizeModelConfig } = require("./schema");
 
 test("calculateScore applies effort as a cost dimension", () => {
   const baseTask = {
@@ -185,6 +186,90 @@ test("reorder service analyzes input once before producing all rule preset resul
   assert.equal(result.source, "model");
   assert.equal(result.presetResults.balanced.queue[0].title, "提交初赛帖");
   assert.equal(result.presetResults.low_effort_first.queue[0].title, "提交初赛帖");
+});
+
+test("reorder service uses request model config when creating the provider", async () => {
+  let receivedConfig = null;
+  const service = createReorderService({
+    providerFactory: (modelConfig) => {
+      receivedConfig = modelConfig;
+      return {
+        isConfigured: () => true,
+        analyze: async () => ({
+          extractedTasks: [
+            {
+              title: "检查用户模型配置",
+              deadlineText: "今天",
+              urgency: 4,
+              goalImpact: 4,
+              blockingRisk: 3,
+              effort: 2,
+              energyFit: 4,
+              taskValue: 4,
+              explicitToday: true,
+              confidence: 0.9
+            }
+          ],
+          inputSummary: "使用用户模型配置完成分析。",
+          warnings: []
+        })
+      };
+    }
+  });
+
+  const result = await service.reorder({
+    rawInput: "今天检查用户模型配置",
+    currentQueue: [],
+    outOfToday: [],
+    manualOrderConstraints: [],
+    manualOutIds: [],
+    modelConfig: {
+      baseUrl: "https://api.deepseek.com/v1/chat/completions",
+      modelName: "deepseek-chat",
+      apiKey: "user-key",
+      timeoutMs: 9000
+    }
+  });
+
+  assert.deepEqual(receivedConfig, {
+    modelBaseUrl: "https://api.deepseek.com/v1",
+    modelName: "deepseek-chat",
+    modelApiKey: "user-key",
+    modelTimeoutMs: 9000
+  });
+  assert.equal(result.source, "model");
+  assert.equal(result.queue[0].title, "检查用户模型配置");
+});
+
+test("normalizeModelConfig rejects non-https remote URLs", () => {
+  assert.throws(() => normalizeModelConfig({
+    baseUrl: "http://api.example.com/v1",
+    modelName: "example-model",
+    apiKey: "user-key"
+  }), /must use https/);
+});
+
+test("normalizeModelConfig allows localhost development URLs", () => {
+  assert.deepEqual(normalizeModelConfig({
+    baseUrl: "http://localhost:11434/v1",
+    modelName: "local-model",
+    apiKey: "local-key",
+    timeoutMs: 500
+  }), {
+    modelBaseUrl: "http://localhost:11434/v1",
+    modelName: "local-model",
+    modelApiKey: "local-key",
+    modelTimeoutMs: 1000
+  });
+
+  assert.equal(
+    normalizeModelConfig({
+      baseUrl: "http://[::1]:11434/v1",
+      modelName: "local-model",
+      apiKey: "local-key"
+    }).modelBaseUrl,
+    "http://[::1]:11434/v1"
+  );
 });
 
 test("reorder service falls back to balanced for unknown rule preset", async () => {

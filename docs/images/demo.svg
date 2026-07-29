@@ -43,7 +43,7 @@
       <g transform="translate(0 128)">
         <circle cx="18" cy="18" r="18" fill="#9688e3"/>
         <path d="M10 18l5 5 11-12" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-        <text x="52" y="26" fill="#181915" font-size="22" font-weight="600">支持手动约束与多种注意力模式</text>
+        <text x="52" y="26" fill="#181915" font-size="22" font-weight="600">接入自己的模型 API Key</text>
       </g>
     </g>
   </g>

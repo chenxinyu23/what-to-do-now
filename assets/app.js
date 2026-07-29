@@ -28,6 +28,13 @@ const RULE_PROFILES = {
   }
 };
 
+const DEFAULT_MODEL_CONFIG = {
+  baseUrl: "https://api.deepseek.com",
+  modelName: "deepseek-chat",
+  apiKey: "",
+  timeoutMs: 5000
+};
+
 class AttentionReorderApp {
   constructor() {
     this.storageKey = "attention_queue_demo_state";
@@ -55,7 +62,9 @@ class AttentionReorderApp {
       isIdeaSheetOpen: false,
       isEditingGoal: false,
       goalDraft: "",
-      isGoalDirty: false
+      isGoalDirty: false,
+      modelConfig: { ...DEFAULT_MODEL_CONFIG },
+      isModelSettingsOpen: false
     };
     this.init();
   }
@@ -99,6 +108,25 @@ class AttentionReorderApp {
     return Object.prototype.hasOwnProperty.call(RULE_PROFILES, rulePreset) ? rulePreset : "balanced";
   }
 
+  normalizeModelConfig(modelConfig = {}) {
+    const timeoutMs = Number(modelConfig.timeoutMs || DEFAULT_MODEL_CONFIG.timeoutMs);
+    return {
+      baseUrl: String(modelConfig.baseUrl || DEFAULT_MODEL_CONFIG.baseUrl),
+      modelName: String(modelConfig.modelName || DEFAULT_MODEL_CONFIG.modelName),
+      apiKey: String(modelConfig.apiKey || ""),
+      timeoutMs: Number.isFinite(timeoutMs) ? Math.min(30000, Math.max(1000, timeoutMs)) : DEFAULT_MODEL_CONFIG.timeoutMs
+    };
+  }
+
+  getRequestModelConfig() {
+    const config = this.normalizeModelConfig(this.state.modelConfig);
+    const baseUrl = config.baseUrl.trim();
+    const modelName = config.modelName.trim();
+    const apiKey = config.apiKey.trim();
+    if (!baseUrl || !modelName || !apiKey) return null;
+    return { baseUrl, modelName, apiKey, timeoutMs: config.timeoutMs };
+  }
+
   getRuleProfile(rulePreset = this.state.rulePreset) {
     return RULE_PROFILES[this.normalizeRulePreset(rulePreset)];
   }
@@ -134,7 +162,9 @@ class AttentionReorderApp {
         isChangeDetailsOpen: Boolean(parsed.isChangeDetailsOpen),
         isCompletedExpanded: Boolean(parsed.isCompletedExpanded),
         goalDraft: parsed.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
-        isGoalDirty: Boolean(parsed.isGoalDirty)
+        isGoalDirty: Boolean(parsed.isGoalDirty),
+        modelConfig: this.normalizeModelConfig(parsed.modelConfig),
+        isModelSettingsOpen: Boolean(parsed.isModelSettingsOpen)
       };
     } catch (error) {
       localStorage.removeItem(this.storageKey);
@@ -161,7 +191,9 @@ class AttentionReorderApp {
         isRuleDetailsOpen: this.state.isRuleDetailsOpen,
         isChangeDetailsOpen: this.state.isChangeDetailsOpen,
         isCompletedExpanded: this.state.isCompletedExpanded,
-        isGoalDirty: this.state.isGoalDirty
+        isGoalDirty: this.state.isGoalDirty,
+        modelConfig: this.normalizeModelConfig(this.state.modelConfig),
+        isModelSettingsOpen: this.state.isModelSettingsOpen
       };
       localStorage.setItem(this.storageKey, JSON.stringify(persisted));
     } catch (error) {
@@ -182,6 +214,9 @@ class AttentionReorderApp {
     const rerankRuleBtn = document.getElementById("rerank-rule-btn");
     const ruleDetailsBtn = document.getElementById("rule-details-toggle");
     const changeDetailsBtn = document.getElementById("change-details-toggle");
+    const modelSettingsToggle = document.getElementById("model-settings-toggle");
+    const saveModelConfigBtn = document.getElementById("save-model-config");
+    const clearModelConfigBtn = document.getElementById("clear-model-config");
     const goalDraft = document.getElementById("goal-draft");
 
     if (closeSheetBtn) closeSheetBtn.onclick = () => this.closeIdeaSheet();
@@ -195,6 +230,19 @@ class AttentionReorderApp {
     if (rerankRuleBtn) rerankRuleBtn.onclick = () => this.handleRerankOnly();
     if (ruleDetailsBtn) ruleDetailsBtn.onclick = () => this.toggleRuleDetails();
     if (changeDetailsBtn) changeDetailsBtn.onclick = () => this.toggleChangeDetails();
+    if (modelSettingsToggle) modelSettingsToggle.onclick = () => this.toggleModelSettings();
+    if (saveModelConfigBtn) saveModelConfigBtn.onclick = () => this.saveModelConfig();
+    if (clearModelConfigBtn) clearModelConfigBtn.onclick = () => this.clearModelConfig();
+
+    document.querySelectorAll("[data-model-config-field]").forEach((input) => {
+      input.oninput = (event) => {
+        const field = event.currentTarget.dataset.modelConfigField;
+        this.state.modelConfig = {
+          ...this.normalizeModelConfig(this.state.modelConfig),
+          [field]: field === "timeoutMs" ? Number(event.currentTarget.value) : event.currentTarget.value
+        };
+      };
+    });
 
     if (goalDraft) {
       goalDraft.oninput = (event) => {
@@ -436,6 +484,32 @@ class AttentionReorderApp {
     this.render();
   }
 
+  toggleModelSettings() {
+    this.state.isModelSettingsOpen = !this.state.isModelSettingsOpen;
+    this.persistState();
+    this.render();
+  }
+
+  saveModelConfig() {
+    const config = this.normalizeModelConfig(this.state.modelConfig);
+    if (!config.baseUrl.trim() || !config.modelName.trim() || !config.apiKey.trim()) {
+      this.showToast("请填写完整的模型地址、模型名和 API Key");
+      return;
+    }
+
+    this.state.modelConfig = config;
+    this.persistState();
+    this.render();
+    this.showToast("模型配置已保存在当前浏览器");
+  }
+
+  clearModelConfig() {
+    this.state.modelConfig = { ...DEFAULT_MODEL_CONFIG };
+    this.persistState();
+    this.render();
+    this.showToast("已清除模型 API Key，将使用备用规则");
+  }
+
   async requestReorder(inputText, previousQueue) {
     const requestBody = this.buildReorderRequest(inputText);
 
@@ -521,6 +595,7 @@ class AttentionReorderApp {
   }
 
   buildReorderRequest(inputText) {
+    const modelConfig = this.getRequestModelConfig();
     return {
       rawInput: inputText,
       todayGoal: this.state.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
@@ -529,6 +604,7 @@ class AttentionReorderApp {
       outOfToday: this.getOutOfTodayTasks(this.state.currentQueue),
       manualOrderConstraints: this.state.manualOrderConstraints,
       manualOutIds: this.state.manualOutIds,
+      ...(modelConfig ? { modelConfig } : {}),
       userContext: {
         currentTimeLabel: this.getCurrentTimeLabel(),
         energyLevel: "medium"
@@ -1431,7 +1507,80 @@ class AttentionReorderApp {
             <button class="example-btn composer-example-btn" type="button" data-example-id="${example.id}" ${this.state.isProcessing ? "disabled" : ""}>${this.escapeHtml(example.name)}</button>
           `).join("")}
         </div>
+        ${this.renderModelSettingsPanel()}
       </section>
+    `;
+  }
+
+  renderModelSettingsPanel() {
+    const config = this.normalizeModelConfig(this.state.modelConfig);
+    const hasModelConfig = Boolean(config.baseUrl.trim() && config.modelName.trim() && config.apiKey.trim());
+
+    return `
+      <div class="model-settings-panel">
+        <button
+          id="model-settings-toggle"
+          class="model-settings-toggle"
+          type="button"
+          aria-expanded="${this.state.isModelSettingsOpen ? "true" : "false"}"
+        >
+          <span>大模型 API</span>
+          <span>${hasModelConfig ? "已配置" : "使用备用规则"} · ${this.state.isModelSettingsOpen ? "收起" : "设置"}</span>
+        </button>
+        ${this.state.isModelSettingsOpen ? `
+          <div class="model-settings-body">
+            <p class="model-settings-hint">API Key 保存在当前浏览器。重排时会发送到本地后端，并由本地后端请求你配置的模型服务。</p>
+            <label class="field-label" for="model-base-url">Base URL</label>
+            <input
+              id="model-base-url"
+              class="model-config-input"
+              data-model-config-field="baseUrl"
+              type="url"
+              value="${this.escapeHtml(config.baseUrl)}"
+              placeholder="https://api.deepseek.com"
+              ${this.state.isProcessing ? "disabled" : ""}
+            >
+            <label class="field-label" for="model-name">模型名</label>
+            <input
+              id="model-name"
+              class="model-config-input"
+              data-model-config-field="modelName"
+              type="text"
+              value="${this.escapeHtml(config.modelName)}"
+              placeholder="deepseek-chat"
+              ${this.state.isProcessing ? "disabled" : ""}
+            >
+            <label class="field-label" for="model-api-key">API Key</label>
+            <input
+              id="model-api-key"
+              class="model-config-input"
+              data-model-config-field="apiKey"
+              type="password"
+              autocomplete="off"
+              spellcheck="false"
+              value="${this.escapeHtml(config.apiKey)}"
+              placeholder="sk-..."
+              ${this.state.isProcessing ? "disabled" : ""}
+            >
+            <label class="field-label" for="model-timeout-ms">超时时间（毫秒）</label>
+            <input
+              id="model-timeout-ms"
+              class="model-config-input"
+              data-model-config-field="timeoutMs"
+              type="number"
+              min="1000"
+              max="30000"
+              step="500"
+              value="${this.escapeHtml(config.timeoutMs)}"
+              ${this.state.isProcessing ? "disabled" : ""}
+            >
+            <div class="model-settings-actions">
+              <button id="save-model-config" class="btn-secondary compact" type="button" ${this.state.isProcessing ? "disabled" : ""}>保存配置</button>
+              <button id="clear-model-config" class="btn-link" type="button" ${this.state.isProcessing ? "disabled" : ""}>清除 Key</button>
+            </div>
+          </div>
+        ` : ""}
+      </div>
     `;
   }
 

@@ -13,7 +13,7 @@
 3. Demo 稳定可控。
 4. 后续可平滑接入真实大模型和语音识别。
 
-核心版本会在静态前端之外增加轻量后端代理，用于保护模型 API Key、调用模型、校验结构化输出，并在后端执行权威重排逻辑。
+核心版本会在静态前端之外增加轻量后端代理，用于接收用户自带模型配置、调用模型、校验结构化输出，并在后端执行权威重排逻辑。
 
 ## 2. 技术目标
 
@@ -24,7 +24,7 @@
 | 主要设备 | 移动端浏览器优先，桌面端自适应 |
 | 核心链路 | 输入想法 -> 抽取任务 -> 重排队列 -> 解释取舍 |
 | 初赛依赖 | 不强依赖后端服务和外部 API |
-| 核心版本依赖 | 轻量 Express 后端、模型 API、环境变量配置 |
+| 核心版本依赖 | 轻量 Express 后端、用户自带 OpenAI-compatible 模型配置 |
 | 扩展方向 | provider adapter、Web Speech API、PWA、移动 App |
 
 ## 3. 总体架构
@@ -110,14 +110,13 @@ interface TaskAnalysisProvider {
 }
 ```
 
-第一版只实现一个 OpenAI-compatible provider，通过基础地址和模型名称切换具体服务：
+第一版只实现一个 OpenAI-compatible provider，通过请求体中的用户模型配置切换具体服务：
 
 ```text
-MODEL_BASE_URL=...
-MODEL_NAME=...
-MODEL_API_KEY=...
-MODEL_TIMEOUT_MS=5000
-PORT=3000
+modelConfig.baseUrl=...
+modelConfig.modelName=...
+modelConfig.apiKey=...
+modelConfig.timeoutMs=5000
 ```
 
 ### 3.4 模型选择策略
@@ -130,7 +129,7 @@ PORT=3000
 2. 备选候选：Qwen Plus。
 3. 质量对照：OpenAI 小模型。
 
-暂不做自动模型路由。需要比较模型时，通过 `.env` 手动切换 `MODEL_BASE_URL`、`MODEL_NAME` 和 `MODEL_API_KEY`，再运行固定评测集。
+暂不做自动模型路由。需要比较模型时，在页面“大模型 API”设置中手动切换 Base URL、模型名和 API Key。
 
 优化顺序：
 
@@ -151,7 +150,7 @@ PORT=3000
 | 状态 | 内存对象 | Demo 数据量小，无需状态库 |
 | 语音 | Web Speech API，可选 | 浏览器支持时增强体验 |
 | 持久化 | LocalStorage，可选 | 保存示例队列和用户修改 |
-| AI | V0.1 本地模拟；核心版本经后端接入模型 | 保证 Demo 稳定并保护 API Key |
+| AI | V0.1 本地模拟；核心版本经后端接入用户模型 | 保证 Demo 稳定并避免绑定开发者 Key |
 
 ### 4.2 为什么不优先使用框架
 
@@ -175,7 +174,7 @@ PORT=3000
 | 后端 | Node.js + Express | 静态文件托管和 JSON API 足够简单 |
 | API | `POST /api/reorder` | 单一核心入口，便于前后端契约稳定 |
 | 模型接入 | Provider adapter | 起步只接一个模型，后续可替换 |
-| 配置 | 环境变量 + `.env.example` | 避免 API Key 进入前端和仓库 |
+| 配置 | 浏览器本地模型配置 + 请求级校验 | 用户使用自己的 Key，避免仓库绑定开发者 Key |
 | 校验 | 轻量 schema validator | 校验模型 JSON，失败自动 fallback |
 | 重排 | 后端规则引擎 | 统一执行评分、手动约束和硬约束 |
 
@@ -782,6 +781,12 @@ interface TaskAnalysisProvider {
   "outOfToday": [],
   "manualOrderConstraints": [],
   "manualOutIds": [],
+  "modelConfig": {
+    "baseUrl": "https://api.deepseek.com",
+    "modelName": "deepseek-chat",
+    "apiKey": "用户自己的 API Key",
+    "timeoutMs": 5000
+  },
   "userContext": {
     "currentTimeLabel": "下午",
     "energyLevel": "medium"
@@ -813,6 +818,7 @@ interface TaskAnalysisProvider {
 3. 新任务 ID 由后端生成。
 4. 响应必须是前端可直接渲染的最终结果。
 5. 后端内部错误不直接暴露给普通用户，使用 `warnings` 表达可读降级信息。
+6. `modelConfig` 缺失或为空时使用 fallback；非本地 HTTP Base URL 直接拒绝。
 
 ### 10.2 后端模块
 
@@ -836,7 +842,7 @@ server/
 | 模块 | 职责 |
 | --- | --- |
 | `server.js` | 托管静态文件，注册 `/api/reorder` |
-| `config.js` | 读取端口、provider、模型名和 API Key |
+| `config.js` | 读取服务监听地址和端口 |
 | `openai-provider.js` | 调用模型并返回原始结构化结果 |
 | `schema.js` | 校验和归一化模型输出 |
 | `reorder-service.js` | 编排 provider、fallback、评分和重排 |
@@ -1062,10 +1068,10 @@ attention_queue_demo_state
 
 1. 明确告知用户输入会发送到模型服务。
 2. 不上传敏感个人信息。
-3. API Key 不能写死在前端。
-4. 通过后端代理调用模型。
+3. API Key 不能写死在仓库或服务端默认配置中。
+4. 用户 Key 保存在当前浏览器，并通过后端代理调用模型。
 5. 提供清空本地数据能力。
-6. `.env` 不提交到仓库，只提交 `.env.example`。
+6. `.env` 不提交到仓库，只提交不含模型 Key 的 `.env.example`。
 
 ## 19. 文件结构建议
 
@@ -1150,14 +1156,14 @@ idea.md
 ## 21. 开发顺序建议
 
 1. 保留现有静态前端和本地兜底逻辑。
-2. 增加 `.env.example` 和 `server/config.js`。
+2. 增加 `.env.example` 和 `server/config.js`，只管理服务监听配置。
 3. 增加 Express `server/server.js`，托管静态文件和 `/api/reorder`。
 4. 定义 `ReorderRequest` / `ReorderResult` schema。
 5. 实现 provider adapter 和第一版模型 provider。
 6. 实现 schema 校验和归一化。
 7. 将评分、重排、解释逻辑迁到后端权威实现。
 8. 实现 fallback extractor。
-9. 前端增加今日目标输入并请求 `/api/reorder`。
+9. 前端增加今日目标输入、用户模型设置并请求 `/api/reorder`。
 10. 前端在 API 不可用时使用本地兜底。
 11. 增加核心重排规则的单元测试或脚本烟测。
 12. 做移动端和 API 失败场景测试。
@@ -1172,7 +1178,7 @@ idea.md
 4. 每个变化都有解释。
 5. 移动端展示不溢出、不重叠。
 6. 拖拽排序后，后续 AI 重排会体现用户反馈。
-7. 核心版本中 API Key 不出现在前端。
+7. 核心版本中不内置开发者 API Key，用户可接入自己的 OpenAI-compatible API 和 Key。
 8. `/api/reorder` 能返回 `source: "model"`、`source: "fallback"` 或空输入重排时的 `source: "none"`。
 9. 模型输出无效时仍能返回可渲染重排结果。
 10. 评委 3 分钟内可以完整体验一次。

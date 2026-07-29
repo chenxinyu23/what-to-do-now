@@ -18,7 +18,7 @@ An AI-assisted daily queue that answers “what should I do now?” when new tas
 - **今天晚点做**：今天仍应推进，但不需要立刻处理。
 - **不放进今天**：有价值但暂时不应占用今天注意力的事项。
 
-模型只负责理解和补全任务维度，最终排序由本地规则引擎完成。模型不可用、超时或输出不合法时，服务会自动切换到备用规则，保证 Demo 仍可体验。
+模型只负责理解和补全任务维度，最终排序由本地规则引擎完成。用户可以在页面中接入自己的 OpenAI-compatible API 和 Key；未配置、超时或输出不合法时，服务会自动切换到备用规则，保证 Demo 仍可体验。
 
 ## 核心能力
 
@@ -28,7 +28,7 @@ An AI-assisted daily queue that answers “what should I do now?” when new tas
 - 支持手动排序、移出今天、标记完成和撤销操作。
 - 展示排序原因、队列变化和被打破的手动约束。
 - 使用浏览器 `localStorage` 保存本地体验状态。
-- 兼容 DeepSeek、Qwen 和 OpenAI 等 Chat Completions 风格接口。
+- 支持用户在浏览器中配置自己的 DeepSeek、Qwen、OpenAI 等 Chat Completions 风格接口。
 
 ## 工作原理
 
@@ -46,7 +46,7 @@ Express API ──► OpenAI-compatible 模型
 Schema 归一化 ──► 本地评分与约束引擎 ──► 可解释的今日队列
 ```
 
-后端代理负责保护模型 API Key、限制请求体大小并执行权威排序；浏览器只访问本项目的 `/api/reorder` 接口。
+后端代理负责限制请求体大小、校验用户模型配置并执行权威排序；浏览器只访问本项目的 `/api/reorder` 接口。
 
 ## 快速开始
 
@@ -73,44 +73,44 @@ npm run dev
 2. 点击底部的“新增想法”。
 3. 选择“Demo 提交”示例，或输入：`刚想到还要录制 1 分钟演示视频、检查线上链接、补一版项目说明`。
 4. 点击“新增并重排”。
-5. 查看今日队列变化与 AI 取舍解释。
+5. 如需真实模型分析，展开“大模型 API”，填写自己的 Base URL、模型名和 API Key 后保存。
+6. 查看今日队列变化与 AI 取舍解释。
 
-## 模型配置
+## 用户模型配置
 
-复制 `.env.example` 后按需修改：
+模型配置在页面中的“大模型 API”折叠区完成，并保存在当前浏览器的 `localStorage`。完整填写后，每次重排都会随 `/api/reorder` 请求发送到本地后端，由后端代理调用你配置的模型服务。
 
-| 变量 | 默认值 | 说明 |
+| 页面字段 | 默认值 | 说明 |
 | --- | --- | --- |
-| `HOST` | `0.0.0.0` | Express 监听地址 |
-| `PORT` | `3000` | 本地服务端口 |
-| `MODEL_BASE_URL` | `https://api.deepseek.com` | OpenAI-compatible API 根地址 |
-| `MODEL_NAME` | `deepseek-chat` | 模型名称 |
-| `MODEL_API_KEY` | 空 | 模型 API Key；为空时使用备用规则 |
-| `MODEL_TIMEOUT_MS` | `5000` | 模型请求超时时间，单位为毫秒 |
+| Base URL | `https://api.deepseek.com` | OpenAI-compatible API 根地址 |
+| 模型名 | `deepseek-chat` | 具体模型名称 |
+| API Key | 空 | 用户自己的模型 API Key；为空时使用备用规则 |
+| 超时时间 | `5000` | 模型请求超时时间，单位为毫秒 |
 
 DeepSeek 示例：
 
 ```text
-MODEL_BASE_URL=https://api.deepseek.com
-MODEL_NAME=deepseek-chat
-MODEL_API_KEY=你的 API Key
+Base URL: https://api.deepseek.com
+模型名: deepseek-chat
 ```
 
 Qwen Plus 示例：
 
 ```text
-MODEL_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-MODEL_NAME=qwen-plus
+Base URL: https://dashscope.aliyuncs.com/compatible-mode/v1
+模型名: qwen-plus
 ```
 
 OpenAI 示例：
 
 ```text
-MODEL_BASE_URL=https://api.openai.com/v1
-MODEL_NAME=gpt-4o-mini
+Base URL: https://api.openai.com/v1
+模型名: gpt-4o-mini
 ```
 
-修改模型配置后需要重启服务。第一阶段不提供自动模型路由。
+模型地址必须使用 `https://`；本地开发时允许 `http://localhost` 和 `http://127.0.0.1`。第一阶段不提供自动模型路由。
+
+`.env.example` 只用于服务端监听地址和端口，不再保存模型 API Key。
 
 ## API
 
@@ -120,7 +120,7 @@ GET  /assets/*
 POST /api/reorder
 ```
 
-`POST /api/reorder` 接收新增输入、当前队列、手动约束和排序模式，返回抽取任务、今日队列、移出今日任务、变化事件与解释信息。
+`POST /api/reorder` 接收新增输入、当前队列、手动约束、排序模式和可选的用户 `modelConfig`，返回抽取任务、今日队列、移出今日任务、变化事件与解释信息。
 
 ## 常用命令
 
@@ -132,7 +132,7 @@ npm run eval:model                  # 运行模型评测集
 npm run eval:model -- --strict      # 将评测 CHECK 作为失败处理
 ```
 
-模型评测会读取 `evals/task-analysis-cases.json`，并将本地结果写入被 Git 忽略的 `evals/results/` 目录。
+模型评测会读取 `evals/task-analysis-cases.json`，并将本地结果写入被 Git 忽略的 `evals/results/` 目录。需要评测真实模型时，可临时设置 `MODEL_BASE_URL`、`MODEL_NAME` 和 `MODEL_API_KEY`；这些变量不会作为应用默认 Key。
 
 ## 设计文档
 
@@ -143,8 +143,8 @@ npm run eval:model -- --strict      # 将评测 CHECK 作为失败处理
 ## 隐私与安全
 
 - 不要提交 `.env` 或任何真实 API Key；仓库只保留 `.env.example`。
-- 用户队列默认保存在当前浏览器的 `localStorage` 中。
-- 启用模型时，任务输入会发送到你配置的第三方模型服务，请遵守对应服务的隐私条款。
+- 用户队列和用户填写的模型配置默认保存在当前浏览器的 `localStorage` 中。
+- 启用模型时，任务输入和 API Key 会发送到本地后端，任务输入会继续发送到你配置的第三方模型服务，请遵守对应服务的隐私条款。
 - 当前项目定位为本地 Demo，不包含公网生产环境所需的鉴权、限流、持久化和监控。
 
 ## 当前限制

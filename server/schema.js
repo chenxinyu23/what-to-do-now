@@ -14,6 +14,49 @@ function ensureObject(value, label) {
   return value;
 }
 
+function normalizeModelBaseUrl(rawBaseUrl) {
+  let url;
+  try {
+    url = new URL(rawBaseUrl);
+  } catch (error) {
+    throw new Error("modelConfig.baseUrl must be a valid URL");
+  }
+
+  const isLocalHttp = url.protocol === "http:" && ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
+  if (url.protocol !== "https:" && !isLocalHttp) {
+    throw new Error("modelConfig.baseUrl must use https, except localhost development URLs");
+  }
+
+  if (url.pathname.endsWith("/chat/completions")) {
+    url.pathname = url.pathname.slice(0, -"/chat/completions".length) || "/";
+  }
+
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/$/, "");
+}
+
+function normalizeModelConfig(modelConfig) {
+  if (modelConfig === undefined || modelConfig === null) return null;
+  const config = ensureObject(modelConfig, "modelConfig");
+  const baseUrl = String(config.baseUrl || "").trim();
+  const modelName = String(config.modelName || "").trim();
+  const apiKey = String(config.apiKey || "").trim();
+
+  if (!baseUrl && !modelName && !apiKey) return null;
+  if (!baseUrl || !modelName || !apiKey) {
+    throw new Error("modelConfig requires baseUrl, modelName, and apiKey");
+  }
+
+  const timeoutMs = Number(config.timeoutMs || 5000);
+  return {
+    modelBaseUrl: normalizeModelBaseUrl(baseUrl),
+    modelName,
+    modelApiKey: apiKey,
+    modelTimeoutMs: Number.isFinite(timeoutMs) ? Math.min(30000, Math.max(1000, timeoutMs)) : 5000
+  };
+}
+
 function normalizeScoreReasons(scoreReasons = {}) {
   return {
     urgency: String(scoreReasons.urgency || "未提供紧急度依据"),
@@ -77,6 +120,7 @@ function normalizeReorderRequest(body = {}) {
     outOfToday: Array.isArray(request.outOfToday) ? request.outOfToday : [],
     manualOrderConstraints: Array.isArray(request.manualOrderConstraints) ? request.manualOrderConstraints : [],
     manualOutIds: Array.isArray(request.manualOutIds) ? request.manualOutIds.map(String) : [],
+    modelConfig: normalizeModelConfig(request.modelConfig),
     userContext: {
       currentTimeLabel: String(request.userContext?.currentTimeLabel || "下午"),
       energyLevel: ["low", "medium", "high"].includes(request.userContext?.energyLevel)
@@ -89,5 +133,6 @@ function normalizeReorderRequest(body = {}) {
 module.exports = {
   normalizeAnalysisResult,
   normalizeCategory,
+  normalizeModelConfig,
   normalizeReorderRequest
 };

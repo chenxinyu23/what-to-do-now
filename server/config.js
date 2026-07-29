@@ -5,11 +5,7 @@ dotenv.config();
 function getConfig() {
   return {
     host: process.env.HOST || "0.0.0.0",
-    port: Number(process.env.PORT || 3000),
-    modelBaseUrl: (process.env.MODEL_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, ""),
-    modelName: process.env.MODEL_NAME || "gpt-4o-mini",
-    modelApiKey: process.env.MODEL_API_KEY || "",
-    modelTimeoutMs: Number(process.env.MODEL_TIMEOUT_MS || 5000)
+    port: Number(process.env.PORT || 3000)
   };
 }
 

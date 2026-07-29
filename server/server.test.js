@@ -1,13 +1,15 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-process.env.MODEL_API_KEY = "";
-
-const { app } = require("./server");
+const { app, createApp } = require("./server");
 
 async function startTestServer(testContext) {
+  return startAppServer(testContext, app);
+}
+
+async function startAppServer(testContext, testApp) {
   const server = await new Promise((resolve) => {
-    const listeningServer = app.listen(0, "127.0.0.1", () => resolve(listeningServer));
+    const listeningServer = testApp.listen(0, "127.0.0.1", () => resolve(listeningServer));
   });
 
   testContext.after(() => new Promise((resolve, reject) => {
@@ -70,4 +72,79 @@ test("POST /api/reorder rejects a non-object request", async (testContext) => {
   assert.equal(body.source, "fallback");
   assert.deepEqual(body.queue, []);
   assert.match(body.warnings[0], /request body must be an object/);
+});
+
+test("POST /api/reorder can use model settings from the request", async (testContext) => {
+  let receivedConfig = null;
+  const testApp = createApp({
+    providerFactory: (modelConfig) => {
+      receivedConfig = modelConfig;
+      return {
+        isConfigured: () => true,
+        analyze: async () => ({
+          extractedTasks: [
+            {
+              title: "用自己的模型分析任务",
+              deadlineText: "今天",
+              urgency: 4,
+              goalImpact: 5,
+              blockingRisk: 3,
+              effort: 2,
+              energyFit: 4,
+              taskValue: 5,
+              explicitToday: true,
+              confidence: 0.9
+            }
+          ],
+          inputSummary: "已使用用户模型。",
+          warnings: []
+        })
+      };
+    }
+  });
+  const baseUrl = await startAppServer(testContext, testApp);
+  const response = await fetch(`${baseUrl}/api/reorder`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      rawInput: "今天用自己的模型分析任务",
+      currentQueue: [],
+      outOfToday: [],
+      modelConfig: {
+        baseUrl: "https://api.openai.com/v1",
+        modelName: "gpt-4o-mini",
+        apiKey: "user-key"
+      }
+    })
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.source, "model");
+  assert.equal(body.queue[0].title, "用自己的模型分析任务");
+  assert.equal(receivedConfig.modelBaseUrl, "https://api.openai.com/v1");
+  assert.equal(receivedConfig.modelName, "gpt-4o-mini");
+  assert.equal(receivedConfig.modelApiKey, "user-key");
+});
+
+test("POST /api/reorder rejects unsafe model base URLs", async (testContext) => {
+  const baseUrl = await startTestServer(testContext);
+  const response = await fetch(`${baseUrl}/api/reorder`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      rawInput: "今天检查模型配置",
+      currentQueue: [],
+      outOfToday: [],
+      modelConfig: {
+        baseUrl: "http://api.example.com/v1",
+        modelName: "example-model",
+        apiKey: "user-key"
+      }
+    })
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.match(body.warnings[0], /must use https/);
 });

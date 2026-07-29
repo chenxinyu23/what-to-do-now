@@ -9,6 +9,16 @@ const resultsPath = path.join(resultsDir, "latest.json");
 const baseUrl = process.env.EVAL_BASE_URL || `http://127.0.0.1:${process.env.PORT || 3000}`;
 const strictMode = process.argv.includes("--strict") || process.env.EVAL_STRICT === "1";
 
+function getEvalModelConfig() {
+  const modelConfig = {
+    baseUrl: process.env.MODEL_BASE_URL || "",
+    modelName: process.env.MODEL_NAME || "",
+    apiKey: process.env.MODEL_API_KEY || "",
+    timeoutMs: Number(process.env.MODEL_TIMEOUT_MS || 5000)
+  };
+  return modelConfig.baseUrl && modelConfig.modelName && modelConfig.apiKey ? modelConfig : null;
+}
+
 async function main() {
   const cases = JSON.parse(fs.readFileSync(casesPath, "utf8"));
   const results = [];
@@ -30,6 +40,7 @@ async function main() {
     resultsPath,
     `${JSON.stringify({
       baseUrl,
+      modelBaseUrl: process.env.MODEL_BASE_URL || null,
       modelName: process.env.MODEL_NAME || null,
       createdAt: new Date().toISOString(),
       summary: runSummary,
@@ -60,6 +71,7 @@ async function runCaseSafely(testCase) {
 }
 
 async function runCase(testCase) {
+  const modelConfig = getEvalModelConfig();
   const response = await fetch(`${baseUrl}/api/reorder`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -70,6 +82,7 @@ async function runCase(testCase) {
       outOfToday: [],
       manualOrderConstraints: [],
       manualOutIds: [],
+      ...(modelConfig ? { modelConfig } : {}),
       userContext: {
         currentTimeLabel: "afternoon",
         energyLevel: "medium"

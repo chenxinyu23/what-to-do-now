@@ -7,13 +7,14 @@ const { explainTasks, generateChangeEvents, generateSummary } = require("./expla
 
 const RULE_PRESETS = Object.keys(RULE_PROFILES);
 
-function createReorderService({ provider } = {}) {
+function createReorderService({ provider, providerFactory } = {}) {
   return {
     async reorder(rawRequest) {
       const request = normalizeReorderRequest(rawRequest);
+      const requestProvider = providerFactory ? providerFactory(request.modelConfig) : provider;
       const rulePayload = getRuleProfile(request.rulePreset);
       const previousTasks = normalizeExistingTasks([...request.currentQueue, ...request.outOfToday]);
-      const analysisPayload = await analyzeWithFallback(provider, request);
+      const analysisPayload = await analyzeWithFallback(requestProvider, request);
       const newTasks = normalizeDrafts(analysisPayload.analysis.extractedTasks, request.rawInput);
       const mergedTasks = mergeWithExistingTasks(previousTasks, newTasks);
       const warnings = [...analysisPayload.analysis.warnings];

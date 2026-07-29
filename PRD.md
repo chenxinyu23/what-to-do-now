@@ -581,12 +581,20 @@ score = baseScore - effortPenalty
   "outOfToday": [],
   "manualOrderConstraints": [],
   "manualOutIds": [],
+  "modelConfig": {
+    "baseUrl": "https://api.deepseek.com",
+    "modelName": "deepseek-chat",
+    "apiKey": "用户自己的 API Key",
+    "timeoutMs": 5000
+  },
   "userContext": {
     "currentTimeLabel": "下午",
     "energyLevel": "medium"
   }
 }
 ```
+
+`modelConfig` 为可选字段。缺失或 API Key 为空时，后端不调用模型并进入本地备用规则；传入时必须使用 `https://` Base URL，本地开发允许 `http://localhost` 和 `http://127.0.0.1`。
 
 ### 12.2 响应
 
@@ -694,7 +702,7 @@ score = baseScore - effortPenalty
 ### 14.3 核心版本验收
 
 1. 前端通过 `/api/reorder` 获取真实模型分析后的重排结果。
-2. API Key 不出现在前端代码、HTML 或浏览器请求中。
+2. 项目不内置开发者个人 API Key，用户可以在浏览器中填写自己的模型 API 配置。
 3. 模型输出经过 schema 校验和分数归一化。
 4. 模型失败时自动回退本地规则，并在界面标记兜底来源。
 5. 用户手动排序和手动移出约束由规则引擎强制执行。
@@ -715,7 +723,7 @@ score = baseScore - effortPenalty
 | 语音识别不稳定 | 浏览器兼容性和环境噪音影响体验 | 文字输入必做，语音作为增强 |
 | 排序理由空泛 | 解释可能缺少说服力 | 固定评分维度，让理由绑定维度 |
 | 初赛交付复杂 | App 或后端会拖慢进度 | 选择单文件 HTML 或静态 Web Demo |
-| API Key 泄露 | 前端直连模型会暴露密钥 | 使用后端代理，Key 只放环境变量 |
+| API Key 泄露 | 前端直连模型会暴露密钥 | 使用后端代理，用户 Key 只保存在当前浏览器并可清除 |
 | 模型结果漂移 | 直接让模型排序会导致不可控 | 模型只做任务分析，规则引擎输出最终顺序 |
 | 模型不可用 | 网络、额度或 JSON 出错影响体验 | 后端自动 fallback，前端标记来源 |
 
