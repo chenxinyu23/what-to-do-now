@@ -1313,7 +1313,7 @@ class AttentionReorderApp {
 
     header.innerHTML = `
       <div class="mode-wrap">
-        <span class="app-title">今日锚</span>
+        <span class="app-title">现在做什么？</span>
         <span class="mode-label">选择你的注意力模式</span>
         <div class="mode-switcher" role="radiogroup" aria-label="选择注意力模式">
           <span class="mode-prefix">模式：</span>

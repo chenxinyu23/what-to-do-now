@@ -1,18 +1,18 @@
-# 今日锚 · AI 注意力重排助手
+# 现在做什么？ · AI 注意力重排助手
 
 > 新想法插入时，不是继续堆积待办，而是重新分配今天的注意力。
 
-An AI-assisted daily queue that turns new ideas into actionable tasks and reorders today’s attention with explainable local rules.
+An AI-assisted daily queue that answers “what should I do now?” when new tasks interrupt the day.
 
-[![CI](https://github.com/chenxinyu23/traeIdea/actions/workflows/ci.yml/badge.svg)](https://github.com/chenxinyu23/traeIdea/actions/workflows/ci.yml)
+[![CI](https://github.com/chenxinyu23/what-to-do-now/actions/workflows/ci.yml/badge.svg)](https://github.com/chenxinyu23/what-to-do-now/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-339933.svg)](package.json)
 
-![今日锚界面预览](docs/images/demo.png)
+![现在做什么？界面预览](docs/images/demo.png)
 
 ## 项目简介
 
-今日锚是一个移动端优先的今日队列 Demo。用户可以输入临时出现的新想法，系统会先将其拆解为任务，再结合今日目标、截止时间、阻塞风险、任务价值、耗时与精力匹配度，重新生成：
+「现在做什么？」是一个移动端优先的今日队列 Demo。用户可以输入临时出现的新想法，系统会先将其拆解为任务，再结合今日目标、截止时间、阻塞风险、任务价值、耗时与精力匹配度，重新生成：
 
 - **现在做**：当前最值得集中注意力的事项。
 - **今天晚点做**：今天仍应推进，但不需要立刻处理。

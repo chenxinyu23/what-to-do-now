@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title description">
-  <title id="title">今日锚产品界面预览</title>
-  <description id="description">展示今日锚的当前任务、今日队列和注意力模式。</description>
+  <title id="title">现在做什么？产品界面预览</title>
+  <description id="description">展示现在做什么？的当前任务、今日队列和注意力模式。</description>
   <defs>
     <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#f3f2ec"/>
@@ -20,8 +20,8 @@
 
   <g transform="translate(105 110)">
     <text x="0" y="0" fill="#5d51a6" font-family="Arial, PingFang SC, sans-serif" font-size="22" font-weight="700" letter-spacing="3">AI ATTENTION REORDER ASSISTANT</text>
-    <text x="0" y="78" fill="#2f295a" font-family="Arial, PingFang SC, sans-serif" font-size="72" font-weight="800">今日锚</text>
-    <text x="0" y="132" fill="#181915" font-family="Arial, PingFang SC, sans-serif" font-size="30" font-weight="600">新想法插入时，重新分配今天的注意力</text>
+    <text x="0" y="78" fill="#2f295a" font-family="Arial, PingFang SC, sans-serif" font-size="68" font-weight="800">现在做什么？</text>
+    <text x="0" y="132" fill="#181915" font-family="Arial, PingFang SC, sans-serif" font-size="30" font-weight="600">新想法插入时，重新决定先做什么</text>
     <text x="0" y="184" fill="#707268" font-family="Arial, PingFang SC, sans-serif" font-size="21">模型理解任务 · 本地规则排序 · 无模型也能体验</text>
 
     <g transform="translate(0 248)">
@@ -54,7 +54,7 @@
     <rect x="169" y="24" width="118" height="22" rx="11" fill="#181915"/>
 
     <g transform="translate(38 82)" font-family="Arial, PingFang SC, sans-serif">
-      <text x="0" y="0" fill="#181915" font-size="24" font-weight="800">今日锚</text>
+      <text x="0" y="0" fill="#181915" font-size="24" font-weight="800">现在做什么？</text>
       <text x="0" y="34" fill="#707268" font-size="15">选择你的注意力模式</text>
       <g transform="translate(0 53)">
         <rect width="76" height="34" rx="17" fill="#9688e3"/>

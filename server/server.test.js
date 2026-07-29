@@ -25,7 +25,7 @@ test("GET / serves the application shell", async (testContext) => {
 
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type"), /text\/html/);
-  assert.match(html, /今日锚 - AI 注意力重排助手/);
+  assert.match(html, /现在做什么？ - AI 注意力重排助手/);
 });
 
 test("GET /assets/app.js serves the browser application", async (testContext) => {

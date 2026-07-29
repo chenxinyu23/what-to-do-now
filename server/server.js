@@ -50,7 +50,7 @@ if (require.main === module) {
         }
       }
     }
-    console.log(`AI attention reorder assistant running at:`);
+    console.log(`What to do now? app running at:`);
     console.log(`  - Local: http://localhost:${config.port}`);
     console.log(`  - Network: http://${localIp}:${config.port}`);
     if (!provider.isConfigured()) {

@@ -1,8 +1,8 @@
 {
-  "name": "attention-reorder-assistant",
+  "name": "what-to-do-now",
   "version": "0.2.0",
   "private": true,
-  "description": "AI attention reorder assistant demo with a lightweight model API proxy.",
+  "description": "What to do now? AI attention reorder assistant demo with a lightweight model API proxy.",
   "main": "server/server.js",
   "engines": {
     "node": ">=22"
