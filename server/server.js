@@ -3,6 +3,7 @@ const path = require("path");
 const { getConfig } = require("./config");
 const { OpenAICompatibleProvider } = require("./providers/openai-compatible-provider");
 const { createReorderService } = require("./reorder-service");
+const { normalizeModelConfig } = require("./schema");
 
 const rootDir = path.resolve(__dirname, "..");
 
@@ -36,6 +37,30 @@ function createApp({ providerFactory } = {}) {
         allTasks: [],
         warnings: [error.message]
       });
+    }
+  });
+
+  app.post("/api/model/test", async (req, res) => {
+    try {
+      const modelConfig = normalizeModelConfig(req.body?.modelConfig);
+      if (!modelConfig) throw new Error("modelConfig requires baseUrl, modelName, and apiKey");
+      const provider = providerFactory ? providerFactory(modelConfig) : new OpenAICompatibleProvider(modelConfig);
+      if (!provider.isConfigured()) throw new Error("model provider is not configured");
+      if (typeof provider.testConnection === "function") {
+        await provider.testConnection();
+      } else {
+        await provider.analyze({
+          rawInput: "测试模型连接",
+          todayGoal: "测试模型连接",
+          currentQueue: [],
+          outOfToday: [],
+          manualOutIds: [],
+          userContext: { currentTimeLabel: "afternoon", energyLevel: "medium" }
+        });
+      }
+      res.json({ ok: true, message: "模型 API 连接成功" });
+    } catch (error) {
+      res.status(400).json({ ok: false, message: error.message });
     }
   });
 

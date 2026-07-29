@@ -148,3 +148,82 @@ test("POST /api/reorder rejects unsafe model base URLs", async (testContext) => 
   assert.equal(response.status, 400);
   assert.match(body.warnings[0], /must use https/);
 });
+
+test("POST /api/model/test verifies model settings from the request", async (testContext) => {
+  let receivedConfig = null;
+  let testCallCount = 0;
+  const testApp = createApp({
+    providerFactory: (modelConfig) => {
+      receivedConfig = modelConfig;
+      return {
+        isConfigured: () => true,
+        testConnection: async () => {
+          testCallCount += 1;
+          return { ok: true };
+        }
+      };
+    }
+  });
+  const baseUrl = await startAppServer(testContext, testApp);
+  const response = await fetch(`${baseUrl}/api/model/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      modelConfig: {
+        baseUrl: "https://api.deepseek.com/v1",
+        modelName: "deepseek-chat",
+        apiKey: "user-key",
+        timeoutMs: 7000
+      }
+    })
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.ok, true);
+  assert.equal(body.message, "模型 API 连接成功");
+  assert.equal(testCallCount, 1);
+  assert.equal(receivedConfig.modelBaseUrl, "https://api.deepseek.com/v1");
+});
+
+test("POST /api/model/test returns a readable error when the provider fails", async (testContext) => {
+  const testApp = createApp({
+    providerFactory: () => ({
+      isConfigured: () => true,
+      testConnection: async () => {
+        throw new Error("model request failed: 401 invalid key");
+      }
+    })
+  });
+  const baseUrl = await startAppServer(testContext, testApp);
+  const response = await fetch(`${baseUrl}/api/model/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      modelConfig: {
+        baseUrl: "https://api.deepseek.com",
+        modelName: "deepseek-chat",
+        apiKey: "bad-key"
+      }
+    })
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(body.ok, false);
+  assert.match(body.message, /401 invalid key/);
+});
+
+test("POST /api/model/test rejects incomplete model settings", async (testContext) => {
+  const baseUrl = await startTestServer(testContext);
+  const response = await fetch(`${baseUrl}/api/model/test`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ modelConfig: { baseUrl: "https://api.deepseek.com" } })
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(body.ok, false);
+  assert.match(body.message, /requires baseUrl/);
+});

@@ -15,6 +15,50 @@ class OpenAICompatibleProvider extends TaskAnalysisProvider {
       throw new Error("model provider is not configured");
     }
 
+    const body = await this.requestChatCompletion({
+      temperature: 0.2,
+      messages: [
+        {
+          role: "system",
+          content: buildSystemPrompt()
+        },
+        {
+          role: "user",
+          content: JSON.stringify(buildPromptPayload(request))
+        }
+      ]
+    });
+    const content = body.choices?.[0]?.message?.content;
+    if (!content) throw new Error("model response did not include message content");
+    return JSON.parse(content);
+  }
+
+  async testConnection() {
+    if (!this.isConfigured()) {
+      throw new Error("model provider is not configured");
+    }
+
+    const body = await this.requestChatCompletion({
+      temperature: 0,
+      messages: [
+        {
+          role: "system",
+          content: "只输出 JSON。"
+        },
+        {
+          role: "user",
+          content: "请只返回 {\"ok\": true}，用于测试模型 API 是否可用。"
+        }
+      ]
+    });
+    const content = body.choices?.[0]?.message?.content;
+    if (!content) throw new Error("model response did not include message content");
+    const parsed = JSON.parse(content);
+    if (parsed.ok !== true) throw new Error("model test response did not include ok: true");
+    return { ok: true };
+  }
+
+  async requestChatCompletion(payload) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.modelTimeoutMs);
 
@@ -27,18 +71,8 @@ class OpenAICompatibleProvider extends TaskAnalysisProvider {
         },
         body: JSON.stringify({
           model: this.config.modelName,
-          temperature: 0.2,
           response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content: buildSystemPrompt()
-            },
-            {
-              role: "user",
-              content: JSON.stringify(buildPromptPayload(request))
-            }
-          ]
+          ...payload
         }),
         signal: controller.signal
       });
@@ -49,9 +83,7 @@ class OpenAICompatibleProvider extends TaskAnalysisProvider {
       }
 
       const body = await response.json();
-      const content = body.choices?.[0]?.message?.content;
-      if (!content) throw new Error("model response did not include message content");
-      return JSON.parse(content);
+      return body;
     } finally {
       clearTimeout(timeout);
     }

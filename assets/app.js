@@ -64,7 +64,10 @@ class AttentionReorderApp {
       goalDraft: "",
       isGoalDirty: false,
       modelConfig: { ...DEFAULT_MODEL_CONFIG },
-      isModelSettingsOpen: false
+      isModelSettingsOpen: false,
+      modelConnectionStatus: "unconfigured",
+      modelConnectionMessage: "未填写 API Key，将使用备用规则",
+      modelConnectionTestedAt: null
     };
     this.init();
   }
@@ -127,6 +130,39 @@ class AttentionReorderApp {
     return { baseUrl, modelName, apiKey, timeoutMs: config.timeoutMs };
   }
 
+  normalizeModelConnectionStatus(status, modelConfig = this.state.modelConfig) {
+    if (!this.hasCompleteModelConfig(modelConfig)) return "unconfigured";
+    return ["untested", "testing", "connected", "failed"].includes(status) ? status : "untested";
+  }
+
+  hasCompleteModelConfig(modelConfig = this.state.modelConfig) {
+    const config = this.normalizeModelConfig(modelConfig);
+    return Boolean(config.baseUrl.trim() && config.modelName.trim() && config.apiKey.trim());
+  }
+
+  getModelConnectionLabel() {
+    const labels = {
+      unconfigured: "未配置",
+      untested: "未测试",
+      testing: "测试中",
+      connected: "已连接",
+      failed: "连接失败"
+    };
+    return labels[this.normalizeModelConnectionStatus(this.state.modelConnectionStatus)] || labels.unconfigured;
+  }
+
+  markModelConfigUntested() {
+    const status = this.hasCompleteModelConfig() ? "untested" : "unconfigured";
+    this.state.modelConnectionStatus = status;
+    this.state.modelConnectionMessage = status === "untested" ? "配置已修改，请测试连接" : "未填写 API Key，将使用备用规则";
+    this.state.modelConnectionTestedAt = null;
+
+    const statusText = document.getElementById("model-connection-summary");
+    if (statusText) statusText.textContent = `${this.getModelConnectionLabel()} · ${this.state.isModelSettingsOpen ? "收起" : "设置"}`;
+    const messageText = document.getElementById("model-connection-message");
+    if (messageText) messageText.textContent = this.state.modelConnectionMessage;
+  }
+
   getRuleProfile(rulePreset = this.state.rulePreset) {
     return RULE_PROFILES[this.normalizeRulePreset(rulePreset)];
   }
@@ -164,7 +200,10 @@ class AttentionReorderApp {
         goalDraft: parsed.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
         isGoalDirty: Boolean(parsed.isGoalDirty),
         modelConfig: this.normalizeModelConfig(parsed.modelConfig),
-        isModelSettingsOpen: Boolean(parsed.isModelSettingsOpen)
+        isModelSettingsOpen: Boolean(parsed.isModelSettingsOpen),
+        modelConnectionStatus: this.normalizeModelConnectionStatus(parsed.modelConnectionStatus, parsed.modelConfig),
+        modelConnectionMessage: parsed.modelConnectionMessage || "未测试模型连接",
+        modelConnectionTestedAt: parsed.modelConnectionTestedAt || null
       };
     } catch (error) {
       localStorage.removeItem(this.storageKey);
@@ -193,7 +232,10 @@ class AttentionReorderApp {
         isCompletedExpanded: this.state.isCompletedExpanded,
         isGoalDirty: this.state.isGoalDirty,
         modelConfig: this.normalizeModelConfig(this.state.modelConfig),
-        isModelSettingsOpen: this.state.isModelSettingsOpen
+        isModelSettingsOpen: this.state.isModelSettingsOpen,
+        modelConnectionStatus: this.normalizeModelConnectionStatus(this.state.modelConnectionStatus, this.state.modelConfig),
+        modelConnectionMessage: this.state.modelConnectionMessage,
+        modelConnectionTestedAt: this.state.modelConnectionTestedAt
       };
       localStorage.setItem(this.storageKey, JSON.stringify(persisted));
     } catch (error) {
@@ -217,6 +259,7 @@ class AttentionReorderApp {
     const modelSettingsToggle = document.getElementById("model-settings-toggle");
     const saveModelConfigBtn = document.getElementById("save-model-config");
     const clearModelConfigBtn = document.getElementById("clear-model-config");
+    const testModelConfigBtn = document.getElementById("test-model-config");
     const goalDraft = document.getElementById("goal-draft");
 
     if (closeSheetBtn) closeSheetBtn.onclick = () => this.closeIdeaSheet();
@@ -233,6 +276,7 @@ class AttentionReorderApp {
     if (modelSettingsToggle) modelSettingsToggle.onclick = () => this.toggleModelSettings();
     if (saveModelConfigBtn) saveModelConfigBtn.onclick = () => this.saveModelConfig();
     if (clearModelConfigBtn) clearModelConfigBtn.onclick = () => this.clearModelConfig();
+    if (testModelConfigBtn) testModelConfigBtn.onclick = () => this.testModelConnection();
 
     document.querySelectorAll("[data-model-config-field]").forEach((input) => {
       input.oninput = (event) => {
@@ -241,6 +285,7 @@ class AttentionReorderApp {
           ...this.normalizeModelConfig(this.state.modelConfig),
           [field]: field === "timeoutMs" ? Number(event.currentTarget.value) : event.currentTarget.value
         };
+        this.markModelConfigUntested();
       };
     });
 
@@ -379,7 +424,7 @@ class AttentionReorderApp {
       this.state.isIdeaSheetOpen = false;
       this.persistState();
       this.render();
-      this.showToast("已将想法加入并重排今日队列");
+      this.showReorderSourceToast(result);
     } catch (error) {
       this.state.isProcessing = false;
       this.showToast("重排失败，请重试");
@@ -407,7 +452,7 @@ class AttentionReorderApp {
       this.state.isRuleDirty = false;
       this.persistState();
       this.render();
-      this.showToast("已按新的今日目标重新安排");
+      this.showReorderSourceToast(result);
     } catch (error) {
       this.state.isProcessing = false;
       this.showToast("重新安排失败，请重试");
@@ -498,16 +543,75 @@ class AttentionReorderApp {
     }
 
     this.state.modelConfig = config;
+    this.state.modelConnectionStatus = "untested";
+    this.state.modelConnectionMessage = "配置已保存，请测试连接";
+    this.state.modelConnectionTestedAt = null;
     this.persistState();
     this.render();
-    this.showToast("模型配置已保存在当前浏览器");
+    this.showToast("模型配置已保存，请测试连接");
   }
 
   clearModelConfig() {
     this.state.modelConfig = { ...DEFAULT_MODEL_CONFIG };
+    this.state.modelConnectionStatus = "unconfigured";
+    this.state.modelConnectionMessage = "未填写 API Key，将使用备用规则";
+    this.state.modelConnectionTestedAt = null;
     this.persistState();
     this.render();
     this.showToast("已清除模型 API Key，将使用备用规则");
+  }
+
+  showReorderSourceToast(result) {
+    if (result?.source === "model") {
+      this.showToast("已使用你的模型完成分析");
+      return;
+    }
+    if (result?.source === "none") {
+      this.showToast("已重新安排当前队列");
+      return;
+    }
+    this.showToast("未使用模型，已按备用规则重排");
+  }
+
+  async testModelConnection() {
+    const modelConfig = this.getRequestModelConfig();
+    if (!modelConfig) {
+      this.state.modelConnectionStatus = "unconfigured";
+      this.state.modelConnectionMessage = "请填写完整的模型地址、模型名和 API Key";
+      this.persistState();
+      this.render();
+      this.showToast("请填写完整的模型配置");
+      return;
+    }
+
+    this.state.modelConnectionStatus = "testing";
+    this.state.modelConnectionMessage = "正在测试模型 API 连接";
+    this.persistState();
+    this.render();
+
+    try {
+      const response = await fetch("/api/model/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modelConfig })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.message || `API returned ${response.status}`);
+
+      this.state.modelConnectionStatus = "connected";
+      this.state.modelConnectionMessage = result.message || "模型 API 连接成功";
+      this.state.modelConnectionTestedAt = new Date().toISOString();
+      this.persistState();
+      this.render();
+      this.showToast("模型 API 连接成功");
+    } catch (error) {
+      this.state.modelConnectionStatus = "failed";
+      this.state.modelConnectionMessage = error.message || "模型 API 连接失败";
+      this.state.modelConnectionTestedAt = new Date().toISOString();
+      this.persistState();
+      this.render();
+      this.showToast("模型 API 连接失败，将使用备用规则");
+    }
   }
 
   async requestReorder(inputText, previousQueue) {
@@ -520,14 +624,28 @@ class AttentionReorderApp {
         body: JSON.stringify(requestBody)
       });
 
-      if (!response.ok) throw new Error(`API returned ${response.status}`);
       const result = await response.json();
+      if (!response.ok) throw new Error(result.warnings?.[0] || result.message || `API returned ${response.status}`);
       if (!Array.isArray(result.allTasks)) throw new Error("API result missing allTasks");
+      if (result.source === "model") {
+        this.state.modelConnectionStatus = "connected";
+        this.state.modelConnectionMessage = "本次已使用你的模型完成分析";
+        this.state.modelConnectionTestedAt = new Date().toISOString();
+      }
       if (result.source === "fallback") {
-        this.showToast("已按智能规则完成重排");
+        if (this.getRequestModelConfig()) {
+          this.state.modelConnectionStatus = "failed";
+          this.state.modelConnectionMessage = "本次未使用模型，已按备用规则重排";
+          this.state.modelConnectionTestedAt = new Date().toISOString();
+        }
       }
       return result;
     } catch (error) {
+      if (this.getRequestModelConfig()) {
+        this.state.modelConnectionStatus = "failed";
+        this.state.modelConnectionMessage = error.message || "本次未使用模型，已按备用规则重排";
+        this.state.modelConnectionTestedAt = new Date().toISOString();
+      }
       const presetResults = this.buildLocalPresetResults(inputText, previousQueue);
       const fallbackResult = presetResults[this.normalizeRulePreset(this.state.rulePreset)];
       return {
@@ -1514,7 +1632,10 @@ class AttentionReorderApp {
 
   renderModelSettingsPanel() {
     const config = this.normalizeModelConfig(this.state.modelConfig);
-    const hasModelConfig = Boolean(config.baseUrl.trim() && config.modelName.trim() && config.apiKey.trim());
+    const status = this.normalizeModelConnectionStatus(this.state.modelConnectionStatus);
+    const statusLabel = this.getModelConnectionLabel();
+    const message = this.state.modelConnectionMessage || "未测试模型连接";
+    const testedAt = this.state.modelConnectionTestedAt ? new Date(this.state.modelConnectionTestedAt).toLocaleString("zh-CN") : "";
 
     return `
       <div class="model-settings-panel">
@@ -1525,11 +1646,15 @@ class AttentionReorderApp {
           aria-expanded="${this.state.isModelSettingsOpen ? "true" : "false"}"
         >
           <span>大模型 API</span>
-          <span>${hasModelConfig ? "已配置" : "使用备用规则"} · ${this.state.isModelSettingsOpen ? "收起" : "设置"}</span>
+          <span id="model-connection-summary">${statusLabel} · ${this.state.isModelSettingsOpen ? "收起" : "设置"}</span>
         </button>
         ${this.state.isModelSettingsOpen ? `
           <div class="model-settings-body">
             <p class="model-settings-hint">API Key 保存在当前浏览器。重排时会发送到本地后端，并由本地后端请求你配置的模型服务。</p>
+            <div class="model-connection-status ${status}" role="status" aria-live="polite">
+              <strong>${statusLabel}</strong>
+              <span id="model-connection-message">${this.escapeHtml(message)}${testedAt ? ` · ${this.escapeHtml(testedAt)}` : ""}</span>
+            </div>
             <label class="field-label" for="model-base-url">Base URL</label>
             <input
               id="model-base-url"
@@ -1575,6 +1700,7 @@ class AttentionReorderApp {
               ${this.state.isProcessing ? "disabled" : ""}
             >
             <div class="model-settings-actions">
+              <button id="test-model-config" class="btn-primary compact" type="button" ${this.state.isProcessing || status === "testing" ? "disabled" : ""}>${status === "testing" ? "测试中..." : "测试连接"}</button>
               <button id="save-model-config" class="btn-secondary compact" type="button" ${this.state.isProcessing ? "disabled" : ""}>保存配置</button>
               <button id="clear-model-config" class="btn-link" type="button" ${this.state.isProcessing ? "disabled" : ""}>清除 Key</button>
             </div>

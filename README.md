@@ -118,9 +118,12 @@ Base URL: https://api.openai.com/v1
 GET  /
 GET  /assets/*
 POST /api/reorder
+POST /api/model/test
 ```
 
 `POST /api/reorder` 接收新增输入、当前队列、手动约束、排序模式和可选的用户 `modelConfig`，返回抽取任务、今日队列、移出今日任务、变化事件与解释信息。
+
+`POST /api/model/test` 接收用户 `modelConfig` 并发起一次轻量模型调用，用于确认 Base URL、模型名和 API Key 是否真实可用。保存配置不等于连接成功，页面会显示 `未配置`、`未测试`、`测试中`、`已连接` 或 `连接失败`。
 
 ## 常用命令
 

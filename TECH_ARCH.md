@@ -820,7 +820,11 @@ interface TaskAnalysisProvider {
 5. 后端内部错误不直接暴露给普通用户，使用 `warnings` 表达可读降级信息。
 6. `modelConfig` 缺失或为空时使用 fallback；非本地 HTTP Base URL 直接拒绝。
 
-### 10.2 后端模块
+### 10.2 POST /api/model/test
+
+请求只包含 `modelConfig`，后端复用同一套模型配置归一化和 provider adapter，发起一次最小 OpenAI-compatible Chat Completions 请求。成功返回 `{ ok: true, message: string }`；配置缺失、URL 不安全、鉴权失败、超时或模型响应无效时返回 400 和可读 `message`。
+
+### 10.3 后端模块
 
 ```text
 server/
@@ -1027,6 +1031,7 @@ attention_queue_demo_state
 | 语音不可用 | 提示“当前浏览器不支持网页语音识别，可使用系统键盘语音输入或文字输入” |
 | 模型调用失败 | 后端回退到本地兜底逻辑，响应 `source: "fallback"` |
 | 模型 JSON 解析失败 | 后端丢弃无效输出并进入 fallback |
+| 模型连接测试失败 | 设置区显示“连接失败”，保留备用规则体验 |
 | 屏幕过窄 | 使用单列布局 |
 | LocalStorage 读取失败 | 忽略本地状态并恢复默认队列 |
 | 拖拽中断 | 保持拖拽前顺序 |

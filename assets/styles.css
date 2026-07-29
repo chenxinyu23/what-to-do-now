@@ -668,6 +668,38 @@ h4 {
   line-height: 1.5;
 }
 
+.model-connection-status {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.model-connection-status strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.model-connection-status.connected {
+  border-color: rgba(55, 138, 86, 0.28);
+  background: rgba(215, 234, 220, 0.54);
+}
+
+.model-connection-status.failed {
+  border-color: rgba(201, 71, 71, 0.24);
+  background: rgba(201, 71, 71, 0.08);
+}
+
+.model-connection-status.testing {
+  border-color: rgba(150, 136, 227, 0.35);
+  background: var(--focus-soft);
+}
+
 .model-config-input {
   width: 100%;
   min-height: 38px;
