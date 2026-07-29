@@ -15,7 +15,7 @@ class OpenAICompatibleProvider extends TaskAnalysisProvider {
       throw new Error("model provider is not configured");
     }
 
-    const body = await this.requestChatCompletion({
+    const payload = {
       temperature: 0.2,
       messages: [
         {
@@ -27,10 +27,11 @@ class OpenAICompatibleProvider extends TaskAnalysisProvider {
           content: JSON.stringify(buildPromptPayload(request))
         }
       ]
-    });
+    };
+    const body = await this.requestChatCompletionWithJsonFallback(payload);
     const content = body.choices?.[0]?.message?.content;
     if (!content) throw new Error("model response did not include message content");
-    return JSON.parse(content);
+    return parseJsonContent(content);
   }
 
   async testConnection() {
@@ -43,37 +44,49 @@ class OpenAICompatibleProvider extends TaskAnalysisProvider {
       messages: [
         {
           role: "system",
-          content: "只输出 JSON。"
+          content: "你是一个 API 连通性测试助手。"
         },
         {
           role: "user",
-          content: "请只返回 {\"ok\": true}，用于测试模型 API 是否可用。"
+          content: "请回复 OK，用于测试模型 API 是否可用。"
         }
-      ]
-    });
+      ],
+      max_tokens: 8
+    }, { responseFormat: false });
     const content = body.choices?.[0]?.message?.content;
     if (!content) throw new Error("model response did not include message content");
-    const parsed = JSON.parse(content);
-    if (parsed.ok !== true) throw new Error("model test response did not include ok: true");
     return { ok: true };
   }
 
-  async requestChatCompletion(payload) {
+  async requestChatCompletionWithJsonFallback(payload) {
+    try {
+      return await this.requestChatCompletion(payload, { responseFormat: true });
+    } catch (error) {
+      if (!isResponseFormatUnsupported(error)) throw error;
+      return this.requestChatCompletion(payload, { responseFormat: false });
+    }
+  }
+
+  async requestChatCompletion(payload, { responseFormat = true } = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.config.modelTimeoutMs);
 
     try {
+      const requestBody = {
+        model: this.config.modelName,
+        ...payload
+      };
+      if (responseFormat) {
+        requestBody.response_format = { type: "json_object" };
+      }
+
       const response = await fetch(`${this.config.modelBaseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${this.config.modelApiKey}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          model: this.config.modelName,
-          response_format: { type: "json_object" },
-          ...payload
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal
       });
 
@@ -87,6 +100,27 @@ class OpenAICompatibleProvider extends TaskAnalysisProvider {
     } finally {
       clearTimeout(timeout);
     }
+  }
+}
+
+function isResponseFormatUnsupported(error) {
+  return /response_format|json_object|unsupported|not support|unrecognized/i.test(error.message);
+}
+
+function parseJsonContent(content) {
+  const trimmed = String(content).trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch (error) {
+    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (fenced) return JSON.parse(fenced[1]);
+
+    const firstBrace = trimmed.indexOf("{");
+    const lastBrace = trimmed.lastIndexOf("}");
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
+    }
+    throw error;
   }
 }
 
