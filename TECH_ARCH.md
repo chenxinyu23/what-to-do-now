@@ -1,5 +1,7 @@
 # AI 注意力重排助手技术架构文档
 
+> 文档状态：当前 Demo 架构与演进设计记录；以仓库代码为最终实现依据。最后整理：2026-07-29。
+
 ## 1. 文档目标
 
 本文档描述“AI 注意力重排助手”初赛 Demo 的技术架构。目标是在不依赖复杂后端的前提下，完成一个可交互、可本地打开、可 Zip 提交的移动端优先 HTML Demo。
@@ -108,12 +110,13 @@ interface TaskAnalysisProvider {
 }
 ```
 
-第一版只实现一个 provider，但通过环境变量保留切换空间：
+第一版只实现一个 OpenAI-compatible provider，通过基础地址和模型名称切换具体服务：
 
 ```text
-MODEL_PROVIDER=openai
+MODEL_BASE_URL=...
 MODEL_NAME=...
 MODEL_API_KEY=...
+MODEL_TIMEOUT_MS=5000
 PORT=3000
 ```
 

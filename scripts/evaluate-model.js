@@ -30,7 +30,6 @@ async function main() {
     resultsPath,
     `${JSON.stringify({
       baseUrl,
-      modelProvider: process.env.MODEL_PROVIDER || null,
       modelName: process.env.MODEL_NAME || null,
       createdAt: new Date().toISOString(),
       summary: runSummary,

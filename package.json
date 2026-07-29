@@ -4,6 +4,9 @@
   "private": true,
   "description": "AI attention reorder assistant demo with a lightweight model API proxy.",
   "main": "server/server.js",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "node server/server.js",
     "test": "node --test",

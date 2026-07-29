@@ -1,131 +1,159 @@
-# AI 注意力重排助手
+# 今日锚 · AI 注意力重排助手
 
-新想法插入时，不是追加待办，而是重新分配今天的注意力。
+> 新想法插入时，不是继续堆积待办，而是重新分配今天的注意力。
 
-一个移动端优先的今日队列 Demo。前端负责捕获想法和展示重排结果，后端通过 OpenAI-compatible 模型接口做任务分析，并用本地规则引擎生成最终排序。
+An AI-assisted daily queue that turns new ideas into actionable tasks and reorders today’s attention with explainable local rules.
 
-## 使用说明
+[![CI](https://github.com/chenxinyu23/traeIdea/actions/workflows/ci.yml/badge.svg)](https://github.com/chenxinyu23/traeIdea/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-339933.svg)](package.json)
 
-推荐体验路径：
+![今日锚界面预览](docs/images/demo.png)
 
-1. 查看顶部“今日目标”。
-2. 点击底部 `+ 新增想法`。
-3. 点击 `快速体验示例` 中的第一个示例，或输入：`刚想到还要录制 1 分钟演示视频、检查线上链接、补一版项目说明`。
-4. 点击 `新增并重排`。
-5. 查看 `现在做 / 今天晚点做 / 不放进今天` 的变化，以及 `AI 取舍解释`。
+## 项目简介
 
-核心亮点：
+今日锚是一个移动端优先的今日队列 Demo。用户可以输入临时出现的新想法，系统会先将其拆解为任务，再结合今日目标、截止时间、阻塞风险、任务价值、耗时与精力匹配度，重新生成：
 
-- 一句话拆成多个可执行事项。
-- 今日目标驱动重排，而不是把新任务堆到列表末尾。
-- 模型负责理解任务，规则引擎负责最终排序。
-- 支持手动排序、移出今天、标记完成和排序偏好预设。
-- 模型不可用时自动使用备用规则，保证 Demo 可体验。
+- **现在做**：当前最值得集中注意力的事项。
+- **今天晚点做**：今天仍应推进，但不需要立刻处理。
+- **不放进今天**：有价值但暂时不应占用今天注意力的事项。
 
-## 启动
+模型只负责理解和补全任务维度，最终排序由本地规则引擎完成。模型不可用、超时或输出不合法时，服务会自动切换到备用规则，保证 Demo 仍可体验。
+
+## 核心能力
+
+- 将一句中文输入拆成多个可执行事项。
+- 围绕今日目标重新排序，而不是简单追加任务。
+- 提供平衡、截止优先、目标优先和低负担优先模式。
+- 支持手动排序、移出今天、标记完成和撤销操作。
+- 展示排序原因、队列变化和被打破的手动约束。
+- 使用浏览器 `localStorage` 保存本地体验状态。
+- 兼容 DeepSeek、Qwen 和 OpenAI 等 Chat Completions 风格接口。
+
+## 工作原理
+
+```text
+用户输入
+   │
+   ▼
+Express API ──► OpenAI-compatible 模型
+   │                  │
+   │                  └─ 抽取任务与评分维度
+   │
+   ├─ 模型失败 ──► 本地备用抽取器
+   │
+   ▼
+Schema 归一化 ──► 本地评分与约束引擎 ──► 可解释的今日队列
+```
+
+后端代理负责保护模型 API Key、限制请求体大小并执行权威排序；浏览器只访问本项目的 `/api/reorder` 接口。
+
+## 快速开始
+
+### 环境要求
+
+- Node.js 22 或更高版本
+- npm 10 或更高版本
+
+### 启动项目
 
 ```bash
-npm install
+npm ci
 cp .env.example .env
 npm run dev
 ```
 
-打开：
+打开 `http://localhost:3000`。
 
-```text
-http://localhost:3000
-```
+没有模型 API Key 也可以运行。此时 `/api/reorder` 会返回 `source: "fallback"`，并使用本地备用规则完成体验。
 
-Express 会同时托管前端页面和后端接口：
+### 推荐体验路径
 
-```text
-GET /
-GET /assets/*
-POST /api/reorder
-```
+1. 查看顶部的今日目标和当前首要任务。
+2. 点击底部的“新增想法”。
+3. 选择“Demo 提交”示例，或输入：`刚想到还要录制 1 分钟演示视频、检查线上链接、补一版项目说明`。
+4. 点击“新增并重排”。
+5. 查看今日队列变化与 AI 取舍解释。
 
 ## 模型配置
 
-个人开发阶段默认优先使用中文性价比模型。推荐从 DeepSeek Chat 开始：
+复制 `.env.example` 后按需修改：
+
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `HOST` | `0.0.0.0` | Express 监听地址 |
+| `PORT` | `3000` | 本地服务端口 |
+| `MODEL_BASE_URL` | `https://api.deepseek.com` | OpenAI-compatible API 根地址 |
+| `MODEL_NAME` | `deepseek-chat` | 模型名称 |
+| `MODEL_API_KEY` | 空 | 模型 API Key；为空时使用备用规则 |
+| `MODEL_TIMEOUT_MS` | `5000` | 模型请求超时时间，单位为毫秒 |
+
+DeepSeek 示例：
 
 ```text
-MODEL_PROVIDER=openai-compatible
 MODEL_BASE_URL=https://api.deepseek.com
 MODEL_NAME=deepseek-chat
 MODEL_API_KEY=你的 API Key
 ```
 
-如果暂时没有 API Key，也可以留空。服务仍会启动，`/api/reorder` 会返回：
-
-```json
-{ "source": "fallback" }
-```
-
-这表示模型链路不可用、超时或输出未通过校验，本次会使用备用规则完成重排。界面上如果看到“备用规则”，应优先检查模型配置、网络、超时和 fallback 抽取效果。
-
-备选模型：
+Qwen Plus 示例：
 
 ```text
-# Qwen Plus
 MODEL_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 MODEL_NAME=qwen-plus
+```
 
-# OpenAI 小模型对照
+OpenAI 示例：
+
+```text
 MODEL_BASE_URL=https://api.openai.com/v1
 MODEL_NAME=gpt-4o-mini
 ```
 
-第一阶段不做自动模型路由。需要比较模型时，手动修改 `.env` 后重启服务。
+修改模型配置后需要重启服务。第一阶段不提供自动模型路由。
 
-## 评测模型
-
-先启动服务：
-
-```bash
-npm run dev
-```
-
-另开一个终端运行固定中文评测集：
-
-```bash
-npm run eval:model
-```
-
-评测脚本会读取 `evals/task-analysis-cases.json`，逐条请求本地 `/api/reorder`，并把结果保存到：
+## API
 
 ```text
-evals/results/latest.json
+GET  /
+GET  /assets/*
+POST /api/reorder
 ```
 
-评测会自动检查固定期望，并输出每条 case 的 `OK` / `CHECK` 状态：
-
-- `source`
-- 耗时
-- 抽取任务数量
-- 期望任务标题覆盖情况
-- deadline / blocking / explicitToday 等硬信号覆盖情况
-- category / urgency / blockingRisk / explicitToday
-- warnings
-
-默认模式下，质量检查未通过只会标记为 `CHECK`，不会让命令失败，方便个人开发阶段反复校准。需要作为门禁时使用：
-
-```bash
-npm run eval:model -- --strict
-```
-
-建议调优顺序：
-
-1. 先用 DeepSeek Chat 跑完整评测集，确认任务抽取和硬信号识别是否稳定。
-2. 如果失败集中在标题拆分、deadline、blocking 或 explicitToday，优先调整模型 prompt。
-3. 如果输出格式不稳定，优先收紧服务端 schema 校验。
-4. 如果任务已识别但排序不符合预期，优先调整本地规则引擎，而不是让模型直接决定最终顺序。
-5. DeepSeek 稳定后，再手动切换 `.env` 对比 Qwen Plus；OpenAI 小模型只作为质量参考。
+`POST /api/reorder` 接收新增输入、当前队列、手动约束和排序模式，返回抽取任务、今日队列、移出今日任务、变化事件与解释信息。
 
 ## 常用命令
 
 ```bash
-npm run dev      # 启动前后端
-npm test         # 后端核心规则测试
-npm run check    # JS 语法检查
-npm run eval:model
+npm run dev                         # 启动前端与 API 服务
+npm run check                       # 检查关键 JavaScript 文件语法
+npm test                            # 运行规则与 HTTP 测试
+npm run eval:model                  # 运行模型评测集
+npm run eval:model -- --strict      # 将评测 CHECK 作为失败处理
 ```
+
+模型评测会读取 `evals/task-analysis-cases.json`，并将本地结果写入被 Git 忽略的 `evals/results/` 目录。
+
+## 设计文档
+
+- [产品需求文档](PRD.md)：产品定位、用户流程、状态和验收标准。
+- [技术架构文档](TECH_ARCH.md)：前后端边界、数据结构、排序策略和演进方案。
+- [创意记录](idea.md)：项目方向收敛前的原始创意备忘。
+
+## 隐私与安全
+
+- 不要提交 `.env` 或任何真实 API Key；仓库只保留 `.env.example`。
+- 用户队列默认保存在当前浏览器的 `localStorage` 中。
+- 启用模型时，任务输入会发送到你配置的第三方模型服务，请遵守对应服务的隐私条款。
+- 当前项目定位为本地 Demo，不包含公网生产环境所需的鉴权、限流、持久化和监控。
+
+## 当前限制
+
+- 仅实现一个 OpenAI-compatible provider adapter。
+- 语音输入依赖浏览器 Web Speech API 支持情况。
+- 前端仍是单页原生 JavaScript 实现，后续可按状态、API 和渲染模块继续拆分。
+- 排序策略用于产品原型验证，不应视为专业时间管理或决策建议。
+
+## License
+
+[MIT](LICENSE) © 2026 Chen Xinyu
