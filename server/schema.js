@@ -114,7 +114,7 @@ function normalizeReorderRequest(body = {}) {
   const { rulePreset } = getRuleProfile(String(request.rulePreset || "balanced"));
   return {
     rawInput: String(request.rawInput || "").trim(),
-    todayGoal: String(request.todayGoal || "完成 AI 创意大赛 Demo 初赛提交").trim(),
+    todayGoal: String(request.todayGoal || "完成项目 Demo 提交").trim(),
     rulePreset,
     currentQueue: Array.isArray(request.currentQueue) ? request.currentQueue : [],
     outOfToday: Array.isArray(request.outOfToday) ? request.outOfToday : [],

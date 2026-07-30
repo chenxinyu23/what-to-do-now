@@ -42,7 +42,7 @@ class AttentionReorderApp {
     this.state = {
       rawInput: "",
       selectedExampleId: null,
-      todayGoal: "完成 AI 创意大赛 Demo 初赛提交",
+      todayGoal: "完成项目 Demo 提交",
       currentQueue: [],
       completedTasks: [],
       lastQueue: [],
@@ -183,7 +183,7 @@ class AttentionReorderApp {
       return {
         rawInput: parsed.rawInput || "",
         selectedExampleId: this.normalizeSelectedExampleId(parsed.selectedExampleId, parsed.rawInput || ""),
-        todayGoal: parsed.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
+        todayGoal: parsed.todayGoal || "完成项目 Demo 提交",
         currentQueue: parsed.currentQueue,
         completedTasks: Array.isArray(parsed.completedTasks) ? parsed.completedTasks : [],
         lastQueue: parsed.lastQueue || [],
@@ -197,7 +197,7 @@ class AttentionReorderApp {
         isRuleDetailsOpen: Boolean(parsed.isRuleDetailsOpen),
         isChangeDetailsOpen: Boolean(parsed.isChangeDetailsOpen),
         isCompletedExpanded: Boolean(parsed.isCompletedExpanded),
-        goalDraft: parsed.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
+        goalDraft: parsed.todayGoal || "完成项目 Demo 提交",
         isGoalDirty: Boolean(parsed.isGoalDirty),
         modelConfig: this.normalizeModelConfig(parsed.modelConfig),
         isModelSettingsOpen: Boolean(parsed.isModelSettingsOpen),
@@ -484,7 +484,7 @@ class AttentionReorderApp {
   }
 
   saveGoalEdit() {
-    const nextGoal = this.state.goalDraft.trim() || "完成 AI 创意大赛 Demo 初赛提交";
+    const nextGoal = this.state.goalDraft.trim() || "完成项目 Demo 提交";
     this.state.todayGoal = nextGoal;
     this.state.goalDraft = nextGoal;
     this.state.isEditingGoal = false;
@@ -738,7 +738,7 @@ class AttentionReorderApp {
     const modelConfig = this.getRequestModelConfig();
     return {
       rawInput: inputText,
-      todayGoal: this.state.todayGoal || "完成 AI 创意大赛 Demo 初赛提交",
+      todayGoal: this.state.todayGoal || "完成项目 Demo 提交",
       rulePreset: this.state.rulePreset,
       currentQueue: this.getTodayTasks(this.state.currentQueue),
       outOfToday: this.getOutOfTodayTasks(this.state.currentQueue),

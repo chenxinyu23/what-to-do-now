@@ -2,7 +2,7 @@
   {
     "id": "single_deadline",
     "name": "单任务明确截止",
-    "todayGoal": "完成 AI 创意大赛 Demo 初赛提交",
+    "todayGoal": "完成项目 Demo 提交",
     "rawInput": "明天中午前要提交报名材料。",
     "notes": "应识别为提交类任务，并给出较高紧急度。",
     "expectations": {
@@ -14,8 +14,8 @@
   },
   {
     "id": "multi_competition",
-    "name": "比赛场景多任务",
-    "todayGoal": "完成 AI 创意大赛 Demo 初赛提交",
+    "name": "项目场景多任务",
+    "todayGoal": "完成项目 Demo 提交",
     "rawInput": "我突然想到还要问老师推荐信，晚上顺便看一下竞品，明天中午前要交报名材料。",
     "notes": "应拆出推荐信、竞品、报名材料三个任务。",
     "expectations": {
@@ -132,7 +132,7 @@
   {
     "id": "long_mixed",
     "name": "长句混合多个任务",
-    "todayGoal": "完成 AI 创意大赛 Demo 初赛提交",
+    "todayGoal": "完成项目 Demo 提交",
     "rawInput": "上午先把技术方案补完，然后把演示数据再检查一遍，下午约同学帮忙试用，晚上如果还有时间再整理一下灵感库。",
     "notes": "应拆出上午、下午、晚上多个任务。",
     "expectations": {

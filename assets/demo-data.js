@@ -95,7 +95,7 @@ export const DEMO_DATA = {
           energyFit: 4,
           taskValue: 5,
           recommendation: "do_now",
-          reason: "直接影响评委理解 Demo，需要优先准备。"
+          reason: "直接影响用户理解 Demo，需要优先准备。"
         },
         {
           title: "检查线上链接",

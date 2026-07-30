@@ -90,7 +90,7 @@ test("reorder service falls back when provider is not configured", async () => {
   const service = createReorderService({ provider: { isConfigured: () => false } });
   const result = await service.reorder({
     rawInput: "今天必须提交报名材料",
-    todayGoal: "完成 AI 创意大赛 Demo 初赛提交",
+    todayGoal: "完成项目 Demo 提交",
     currentQueue: [],
     outOfToday: [],
     manualOrderConstraints: [],
@@ -154,7 +154,7 @@ test("reorder service analyzes input once before producing all rule preset resul
         return {
           extractedTasks: [
             {
-              title: "提交初赛帖",
+              title: "提交项目说明",
               deadlineText: "今晚",
               urgency: 5,
               goalImpact: 5,
@@ -166,7 +166,7 @@ test("reorder service analyzes input once before producing all rule preset resul
               confidence: 0.9
             }
           ],
-          inputSummary: "识别到初赛提交任务。",
+          inputSummary: "识别到项目提交任务。",
           warnings: []
         };
       }
@@ -174,7 +174,7 @@ test("reorder service analyzes input once before producing all rule preset resul
   });
 
   const result = await service.reorder({
-    rawInput: "今晚必须提交初赛帖",
+    rawInput: "今晚必须提交项目说明",
     rulePreset: "balanced",
     currentQueue: [],
     outOfToday: [],
@@ -184,8 +184,8 @@ test("reorder service analyzes input once before producing all rule preset resul
 
   assert.equal(analyzeCallCount, 1);
   assert.equal(result.source, "model");
-  assert.equal(result.presetResults.balanced.queue[0].title, "提交初赛帖");
-  assert.equal(result.presetResults.low_effort_first.queue[0].title, "提交初赛帖");
+  assert.equal(result.presetResults.balanced.queue[0].title, "提交项目说明");
+  assert.equal(result.presetResults.low_effort_first.queue[0].title, "提交项目说明");
 });
 
 test("reorder service uses request model config when creating the provider", async () => {
@@ -365,7 +365,7 @@ test("reorder service keeps the existing primary task in do_now after adding a l
 
   const result = await service.reorder({
     rawInput: "晚点看grill me背后的设计思维",
-    todayGoal: "完成 AI 创意大赛 Demo 初赛提交",
+    todayGoal: "完成项目 Demo 提交",
     currentQueue,
     outOfToday: [],
     manualOrderConstraints: [],
@@ -391,7 +391,7 @@ test("reorder service can rerank existing tasks without adding a new task when i
   });
   const result = await service.reorder({
     rawInput: "",
-    todayGoal: "完成 AI 创意大赛 Demo 初赛提交",
+    todayGoal: "完成项目 Demo 提交",
     currentQueue: [
       {
         id: "task_demo_home",

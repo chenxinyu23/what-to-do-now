@@ -4,11 +4,11 @@
 
 ## 1. 文档目标
 
-本文档描述“现在做什么？”初赛 Demo 的技术架构。目标是在不依赖复杂后端的前提下，完成一个可交互、可本地打开、可 Zip 提交的移动端优先 HTML Demo。
+本文档描述“现在做什么？”本地 Demo 的技术架构。目标是在不依赖复杂后端的前提下，完成一个可交互、可本地运行的移动端优先 Web Demo。
 
 本架构优先保证：
 
-1. 可离线打开。
+1. 本地可运行。
 2. 交互链路完整。
 3. Demo 稳定可控。
 4. 后续可平滑接入真实大模型和语音识别。
@@ -19,17 +19,17 @@
 
 | 目标 | 说明 |
 | --- | --- |
-| 交付形式 | 静态 Web 文件，Zip 打包提交 |
-| 运行方式 | V0.1 解压后直接打开 `index.html`；核心版本通过 `node server/server.js` 启动 |
+| 交付形式 | 本地 Web Demo |
+| 运行方式 | 通过 `npm run dev` 启动本地前端与 API 服务 |
 | 主要设备 | 移动端浏览器优先，桌面端自适应 |
 | 核心链路 | 输入想法 -> 抽取任务 -> 重排队列 -> 解释取舍 |
-| 初赛依赖 | 不强依赖后端服务和外部 API |
+| 本地 Demo 依赖 | 不强依赖后端服务和外部 API |
 | 核心版本依赖 | 轻量 Express 后端、用户自带 OpenAI-compatible 模型配置 |
 | 扩展方向 | provider adapter、Web Speech API、PWA、移动 App |
 
 ## 3. 总体架构
 
-### 3.1 初赛架构
+### 3.1 本地 Demo 架构
 
 ```text
 Browser
@@ -61,7 +61,7 @@ Browser
         |-- LocalStorage
 ```
 
-初赛版本推荐将 HTML、CSS、JavaScript 放在同一个文件中，降低提交和打开成本。若代码量变大，也可以拆成：
+Demo 版本推荐将 HTML、CSS、JavaScript 放在同一个文件中，降低提交和打开成本。若代码量变大，也可以拆成：
 
 ```text
 index.html
@@ -140,13 +140,13 @@ modelConfig.timeoutMs=5000
 
 ## 4. 技术选型
 
-### 4.1 初赛推荐选型
+### 4.1 Demo 推荐选型
 
 | 层级 | 选型 | 原因 |
 | --- | --- | --- |
-| 页面 | HTML5 | 可直接打开，适合 Zip 提交 |
+| 页面 | HTML5 | 结构简单，适合本地 Demo |
 | 样式 | CSS3 | 无构建依赖，兼容性好 |
-| 逻辑 | Vanilla JavaScript | 不依赖框架，提交简单 |
+| 逻辑 | Vanilla JavaScript | 不依赖框架，调试简单 |
 | 状态 | 内存对象 | Demo 数据量小，无需状态库 |
 | 语音 | Web Speech API，可选 | 浏览器支持时增强体验 |
 | 持久化 | LocalStorage，可选 | 保存示例队列和用户修改 |
@@ -154,7 +154,7 @@ modelConfig.timeoutMs=5000
 
 ### 4.2 为什么不优先使用框架
 
-初赛提交需要 HTML Zip 包，评委打开即用。使用 React/Vue/Next.js 会引入构建、资源路径和部署复杂度。若后续做高完成度版本，可以再切换到框架。
+本地 Demo 需要尽量降低启动和资源路径复杂度。使用 React/Vue/Next.js 会引入构建、资源路径和部署复杂度。若后续做高完成度版本，可以再切换到框架。
 
 ### 4.3 后续可选技术栈
 
@@ -253,7 +253,7 @@ task: Task
 
 从自然语言输入中提取任务。
 
-初赛策略：
+Demo 策略：
 
 1. 对示例输入使用固定映射。
 2. 对普通输入使用简单规则拆分。
@@ -338,7 +338,7 @@ out
 示例：
 
 ```text
-截止时间最近，且直接影响参赛提交，因此上升到第 1 位。
+截止时间最近，且直接影响项目提交，因此上升到第 1 位。
 ```
 
 ## 6. 数据模型
@@ -447,7 +447,7 @@ interface ReorderRequest {
 }
 ```
 
-`todayGoal` 第一版提供默认值：`完成 AI 创意大赛 Demo 初赛提交`，同时在前端提供轻量可编辑输入。
+`todayGoal` 第一版提供默认值：`完成项目 Demo 提交`，同时在前端提供轻量可编辑输入。
 
 ### 6.6 TaskAnalysisResult
 
@@ -633,9 +633,9 @@ check Web Speech API support
 
 ## 8. 任务抽取策略
 
-### 8.1 初赛稳定策略
+### 8.1 Demo 稳定策略
 
-为了保证 Demo 稳定，初赛推荐：
+为了保证 Demo 稳定，Demo 推荐：
 
 1. 内置高质量示例输入。
 2. 对示例输入返回预设结构化结果。
@@ -691,11 +691,11 @@ interface TaskAnalysisProvider {
       "confidence": 0.92,
       "scoreReasons": {
         "urgency": "明天中午前截止",
-        "goalImpact": "直接影响参赛提交",
+        "goalImpact": "直接影响项目提交",
         "blockingRisk": "不提交会阻塞报名流程",
         "effort": "材料已接近完成，补交成本较低",
         "energyFit": "适合当前高精力时段处理",
-        "taskValue": "完成后直接推进参赛"
+        "taskValue": "完成后直接推进项目"
       }
     }
   ],
@@ -776,7 +776,7 @@ interface TaskAnalysisProvider {
 ```json
 {
   "rawInput": "明天中午前要交报名材料",
-  "todayGoal": "完成 AI 创意大赛 Demo 初赛提交",
+  "todayGoal": "完成项目 Demo 提交",
   "currentQueue": [],
   "outOfToday": [],
   "manualOrderConstraints": [],
@@ -930,12 +930,12 @@ Grid Layout
 
 ## 12. 状态管理
 
-初赛使用单一全局状态对象：
+当前 Demo 使用单一全局状态对象：
 
 ```js
 const state = {
   rawInput: "",
-  todayGoal: "完成 AI 创意大赛 Demo 初赛提交",
+  todayGoal: "完成项目 Demo 提交",
   currentQueue: [],
   lastQueue: [],
   extractedTasks: [],
@@ -968,7 +968,7 @@ render()
 
 ## 13. 本地存储
 
-### 13.1 初赛是否需要
+### 13.1 当前 Demo 是否需要
 
 需要。手动排序和手动移出代表当前 Demo 会话中的用户反馈，刷新页面后应保留，避免用户觉得反馈没有进入系统。
 
@@ -988,7 +988,7 @@ Key 设计：
 attention_queue_demo_state
 ```
 
-同时提供“重置示例”入口，清空 LocalStorage 并恢复默认队列，保证评委可以回到标准演示状态。
+同时提供“重置示例”入口，清空 LocalStorage 并恢复默认队列，保证体验者可以回到标准演示状态。
 
 ## 14. 手动反馈与 AI 冲突规则
 
@@ -1014,7 +1014,7 @@ attention_queue_demo_state
 
 完成项只保存在前端本地状态，不进入 `/api/reorder` 请求，也不参与模型分析、规则排序或本地 fallback。标记完成时从 `currentQueue` 移除该任务，并清理引用该任务的 `manualOutIds` 和 `manualOrderConstraints`。
 
-撤销最近一次完成时，将任务恢复到今日队列末尾，不恢复旧手动排序约束或旧 `manual_out` 状态。初赛 Demo 不提供直接删除事项能力。
+撤销最近一次完成时，将任务恢复到今日队列末尾，不恢复旧手动排序约束或旧 `manual_out` 状态。Demo 不提供直接删除事项能力。
 
 ## 15. 排序规则可见与偏好预设
 
@@ -1067,7 +1067,7 @@ attention_queue_demo_state
 
 ## 18. 安全与隐私
 
-初赛本地 Demo 不上传用户数据。
+本地 Demo 不上传用户数据。
 
 核心版本接入模型 API 后，需要：
 
@@ -1102,7 +1102,7 @@ docs/
   TECH_ARCH.md
 ```
 
-初赛建议保持单文件或轻量拆分，避免资源路径问题。
+Demo 建议保持单文件或轻量拆分，避免资源路径问题。
 
 ### 19.3 核心版本
 
@@ -1186,4 +1186,4 @@ idea.md
 7. 核心版本中不内置开发者 API Key，用户可接入自己的 OpenAI-compatible API 和 Key。
 8. `/api/reorder` 能返回 `source: "model"`、`source: "fallback"` 或空输入重排时的 `source: "none"`。
 9. 模型输出无效时仍能返回可渲染重排结果。
-10. 评委 3 分钟内可以完整体验一次。
+10. 体验者 3 分钟内可以完整体验一次。
