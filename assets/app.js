@@ -595,7 +595,7 @@ class AttentionReorderApp {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ modelConfig })
       });
-      const result = await response.json();
+      const result = await this.parseApiResponse(response);
       if (!response.ok || !result.ok) throw new Error(result.message || `API returned ${response.status}`);
 
       this.state.modelConnectionStatus = "connected";
@@ -624,7 +624,7 @@ class AttentionReorderApp {
         body: JSON.stringify(requestBody)
       });
 
-      const result = await response.json();
+      const result = await this.parseApiResponse(response);
       if (!response.ok) throw new Error(result.warnings?.[0] || result.message || `API returned ${response.status}`);
       if (!Array.isArray(result.allTasks)) throw new Error("API result missing allTasks");
       if (result.source === "model") {
@@ -658,6 +658,28 @@ class AttentionReorderApp {
         warnings: ["已按智能规则完成重排"]
       };
     }
+  }
+
+  async parseApiResponse(response) {
+    const contentType = response.headers.get("content-type") || "";
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      if (contentType.includes("text/html") || this.looksLikeHtml(text)) {
+        throw new Error("没有收到后端 API 返回的 JSON。请确认使用 npm run dev 启动本项目，并打开 http://localhost:3000，而不是静态预览页面；如果刚更新代码，请重启服务并强制刷新页面。");
+      }
+      throw new Error(`API 返回内容不是有效 JSON：${this.formatResponsePreview(text)}`);
+    }
+  }
+
+  looksLikeHtml(text) {
+    return /^\s*<!doctype\s+html/i.test(text) || /^\s*<html[\s>]/i.test(text);
+  }
+
+  formatResponsePreview(text) {
+    const preview = String(text || "").replace(/\s+/g, " ").trim().slice(0, 120);
+    return preview || "空响应";
   }
 
   normalizePresetResults(presetResults) {
