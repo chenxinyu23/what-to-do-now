@@ -51,6 +51,18 @@ test("testConnection does not require response_format support", async (testConte
   assert.equal(requestBodies[0].response_format, undefined);
 });
 
+test("testConnection accepts a valid completion with empty message content", async (testContext) => {
+  const originalFetch = globalThis.fetch;
+  testContext.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async () => createChatResponse("");
+
+  const result = await createProvider().testConnection();
+
+  assert.deepEqual(result, { ok: true });
+});
+
 test("analyze retries without response_format when provider rejects it", async (testContext) => {
   const originalFetch = globalThis.fetch;
   const requestBodies = [];

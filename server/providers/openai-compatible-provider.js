@@ -53,8 +53,9 @@ class OpenAICompatibleProvider extends TaskAnalysisProvider {
       ],
       max_tokens: 8
     }, { responseFormat: false });
-    const content = body.choices?.[0]?.message?.content;
-    if (!content) throw new Error("model response did not include message content");
+    if (!Array.isArray(body.choices) || body.choices.length === 0) {
+      throw new Error("model response did not include choices");
+    }
     return { ok: true };
   }
 
