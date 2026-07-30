@@ -137,11 +137,6 @@ npm run eval:model -- --strict      # 将评测 CHECK 作为失败处理
 
 模型评测会读取 `evals/task-analysis-cases.json`，并将本地结果写入被 Git 忽略的 `evals/results/` 目录。需要评测真实模型时，可临时设置 `MODEL_BASE_URL`、`MODEL_NAME` 和 `MODEL_API_KEY`；这些变量不会作为应用默认 Key。
 
-## 设计文档
-
-- [产品需求文档](PRD.md)：产品定位、用户流程、状态和验收标准。
-- [技术架构文档](TECH_ARCH.md)：前后端边界、数据结构、排序策略和演进方案。
-
 ## 隐私与安全
 
 - 不要提交 `.env` 或任何真实 API Key；仓库只保留 `.env.example`。
