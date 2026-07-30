@@ -15,6 +15,14 @@ function createProvider() {
 function createChatResponse(content) {
   return {
     ok: true,
+    headers: new Map([["content-type", "application/json"]]),
+    text: async () => JSON.stringify({
+      choices: [
+        {
+          message: { content }
+        }
+      ]
+    }),
     json: async () => ({
       choices: [
         {
@@ -91,4 +99,21 @@ test("analyze retries without response_format when provider rejects it", async (
   assert.equal(requestBodies.length, 2);
   assert.deepEqual(requestBodies.map((body) => Boolean(body.response_format)), [true, false]);
   assert.equal(result.extractedTasks[0].title, "补项目说明");
+});
+
+test("testConnection reports a readable error when the model endpoint returns HTML", async (testContext) => {
+  const originalFetch = globalThis.fetch;
+  testContext.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async () => ({
+    ok: true,
+    headers: new Map([["content-type", "text/html; charset=utf-8"]]),
+    text: async () => "<!DOCTYPE html><html><body>Not Found</body></html>"
+  });
+
+  await assert.rejects(
+    () => createProvider().testConnection(),
+    /Base URL.*API 地址.*\/v1/
+  );
 });

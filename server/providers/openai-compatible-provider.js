@@ -92,11 +92,10 @@ class OpenAICompatibleProvider extends TaskAnalysisProvider {
 
       if (!response.ok) {
         const preview = await response.text();
-        throw new Error(`model request failed: ${response.status} ${preview.slice(0, 200)}`);
+        throw new Error(`model request failed: ${response.status} ${formatResponsePreview(preview)}`);
       }
 
-      const body = await response.json();
-      return body;
+      return await parseChatCompletionResponse(response);
     } finally {
       clearTimeout(timeout);
     }
@@ -122,6 +121,30 @@ function parseJsonContent(content) {
     }
     throw error;
   }
+}
+
+async function parseChatCompletionResponse(response) {
+  const contentType = response.headers?.get?.("content-type") || "";
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    if (/text\/html/i.test(contentType) || looksLikeHtml(text)) {
+      throw new Error("模型服务返回了 HTML 页面。请检查 Base URL 是否是 API 地址，例如需要包含 /v1，且不要填控制台网页地址。");
+    }
+    throw new Error(`model response was not valid JSON: ${formatResponsePreview(text)}`);
+  }
+}
+
+function looksLikeHtml(text) {
+  return /^\s*<!doctype\s+html/i.test(text) || /^\s*<html[\s>]/i.test(text);
+}
+
+function formatResponsePreview(text) {
+  const preview = String(text || "").replace(/\s+/g, " ").trim().slice(0, 200);
+  if (!preview) return "empty response";
+  if (looksLikeHtml(preview)) return "HTML response, likely wrong Base URL";
+  return preview;
 }
 
 function buildSystemPrompt() {
