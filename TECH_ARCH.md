@@ -1086,7 +1086,6 @@ attention_queue_demo_state
 index.html
 PRD.md
 TECH_ARCH.md
-idea.md
 ```
 
 ### 19.2 拆分版本
@@ -1127,7 +1126,6 @@ server/
 .env.example
 PRD.md
 TECH_ARCH.md
-idea.md
 ```
 
 核心版本通过 Express 同时托管静态文件和 `/api/reorder`，前端仍保持轻量 Vanilla JS。
