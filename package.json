@@ -14,7 +14,7 @@
     "eval:model": "node scripts/evaluate-model.js"
   },
   "dependencies": {
-    "@ant-design/icons": "^6.3.2",
+    "@ant-design/icons": "^6.3.4",
     "dotenv": "^16.4.7",
     "express": "^4.21.2"
   }
